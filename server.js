@@ -731,6 +731,7 @@ app.post('/api/scan', async (req, res) => {
         const parsedScannedBy = parseInt(scanned_by) || 1;
         const namaSekolah = await getNamaSekolah();
 
+        // 1. Cek Data Siswa
         const siswaRes = await pool.query(`
             SELECT s.id, s.nama, s.nomor_wa_ortu, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id WHERE s.id = $1
@@ -741,16 +742,33 @@ app.post('/api/scan', async (req, res) => {
         }
 
         const siswa = siswaRes.rows[0];
-
         const now = new Date();
         const jamWib = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':') + ' WIB';
         const tglWib = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+        // 2. Cek Riwayat Absen Hari Ini
+        const cekAbsen = await pool.query(`
+            SELECT jenis_absen FROM absensi 
+            WHERE siswa_id = $1 AND DATE(waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+            ORDER BY waktu ASC
+        `, [siswa.id]);
+
+        let jenisAbsen = 'DATANG';
+        let labelPesan = 'KEBERANGKATAN (TIBA DI SEKOLAH)';
+
+        if (cekAbsen.rows.length > 0) {
+            // Jika sudah absen datang hari ini, set scan berikutnya sebagai PULANG
+            jenisAbsen = 'PULANG';
+            labelPesan = 'KEPULANGAN (MENINGGALKAN SEKOLAH)';
+        }
+
+        // 3. Simpan ke Database
         await pool.query(
-            `INSERT INTO absensi (siswa_id, status, scanned_by, waktu) VALUES ($1, 'HADIR', $2, NOW() AT TIME ZONE 'Asia/Jakarta')`,
-            [siswa.id, parsedScannedBy]
+            `INSERT INTO absensi (siswa_id, status, jenis_absen, scanned_by, waktu) VALUES ($1, 'HADIR', $2, $3, NOW() AT TIME ZONE 'Asia/Jakarta')`,
+            [siswa.id, jenisAbsen, parsedScannedBy]
         );
 
+        // 4. Kirim WA Notification (Sesuai Keberangkatan / Kepulangan)
         let waClient = waSessions[parsedScannedBy];
         if (!waClient) {
             const keys = Object.keys(waSessions);
@@ -765,20 +783,20 @@ app.post('/api/scan', async (req, res) => {
             const formattedJid = phone + '@s.whatsapp.net';
 
             const pesan = `*${namaSekolah.toUpperCase()}*\n` +
-                          `*PEMBERITAHUAN PRESENSI KEHADIRAN SISWA*\n` +
+                          `*PEMBERITAHUAN PRESENSI ${labelPesan}*\n` +
                           `_________________________________________\n\n` +
                           `Yth. Bapak/Ibu Orang Tua / Wali Murid,\n\n` +
-                          `Diberitahukan bahwa putra/putri Anda telah tiba di sekolah dan melakukan presensi kehadiran:\n\n` +
+                          `Diberitahukan status presensi putra/putri Anda:\n\n` +
                           `• Nama Siswa : *${siswa.nama}*\n` +
                           `• Kelas / Rombel : *${siswa.nama_kelas}*\n` +
+                          `• Tipe Presensi : *${jenisAbsen === 'DATANG' ? 'Keberangkatan / Tiba ✅' : 'Kepulangan / Pulang 🏠'}*\n` +
                           `• Waktu Scan : *${jamWib}*\n` +
-                          `• Tanggal : *${tglWib}*\n` +
-                          `• Status Kehadiran : *HADIR (Scan Kartu) ✅*\n\n` +
+                          `• Tanggal : *${tglWib}*\n\n` +
                           `Terima kasih atas perhatian dan kerja samanya.\n\n` +
                           `_Pesan otomatis ini dikirim oleh Sistem Presensi Terpadu ${namaSekolah}._`;
 
             waClient.sendMessage(formattedJid, { text: pesan }).catch(e => console.error("Gagal Mengirim WA:", e.message));
-            statusWA = "Notifikasi WhatsApp Berhasil Dikirimkan ke Wali Murid ✅";
+            statusWA = `Notifikasi WA (${jenisAbsen}) Berhasil Terkirim ✅`;
         }
 
         return res.json({
@@ -788,6 +806,7 @@ app.post('/api/scan', async (req, res) => {
                 id: siswa.id,
                 nama: siswa.nama,
                 nama_kelas: siswa.nama_kelas,
+                jenis_absen: jenisAbsen,
                 waktu: jamWib
             }
         });
@@ -813,7 +832,40 @@ app.post('/api/absensi/reset-riwayat', async (req, res) => {
         return res.status(500).send("Gagal membersihkan riwayat absensi: " + err.message);
     }
 });
+// ---------------- FITUR REKAP HARIAN ---------------- //
 
+app.get('/api/absensi/rekap-harian', async (req, res) => {
+    const { tanggal, kelas_id } = req.query;
+    const targetTanggal = tanggal || new Date().toISOString().split('T')[0];
+
+    try {
+        let query = `
+            SELECT 
+                s.id AS siswa_id,
+                s.nama AS nama_siswa,
+                COALESCE(k.nama_kelas, '-') AS nama_kelas,
+                TO_CHAR(MIN(CASE WHEN a.jenis_absen = 'DATANG' THEN a.waktu AT TIME ZONE 'Asia/Jakarta' END), 'HH24:MI:SS') AS jam_datang,
+                TO_CHAR(MAX(CASE WHEN a.jenis_absen = 'PULANG' THEN a.waktu AT TIME ZONE 'Asia/Jakarta' END), 'HH24:MI:SS') AS jam_pulang
+            FROM siswa s
+            LEFT JOIN kelas k ON s.kelas_id = k.id
+            LEFT JOIN absensi a ON s.id = a.siswa_id 
+                AND DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = $1
+        `;
+        const queryParams = [targetTanggal];
+
+        if (kelas_id && kelas_id !== 'all' && kelas_id !== '') {
+            query += ` WHERE s.kelas_id = $2`;
+            queryParams.push(parseInt(kelas_id));
+        }
+
+        query += ` GROUP BY s.id, s.nama, k.nama_kelas ORDER BY s.nama ASC`;
+
+        const result = await pool.query(query, queryParams);
+        return res.json({ success: true, tanggal: targetTanggal, data: result.rows });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
 // ---------------- FITUR REKAP BULANAN ---------------- //
 
 app.get('/api/absensi/preview', async (req, res) => {
@@ -822,7 +874,11 @@ app.get('/api/absensi/preview', async (req, res) => {
 
     try {
         let query = `
-            SELECT s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas, COUNT(a.id) AS total_hadir
+            SELECT 
+                s.nama AS nama_siswa, 
+                COALESCE(k.nama_kelas, '-') AS nama_kelas, 
+                COUNT(DISTINCT CASE WHEN a.jenis_absen = 'DATANG' THEN DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') END) AS total_datang,
+                COUNT(DISTINCT CASE WHEN a.jenis_absen = 'PULANG' THEN DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') END) AS total_pulang
             FROM siswa s
             LEFT JOIN kelas k ON s.kelas_id = k.id
             LEFT JOIN absensi a ON s.id = a.siswa_id 
