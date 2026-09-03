@@ -604,25 +604,35 @@
                 });
         }
 
-        function mintaPairingWA() {
-            const noHp = prompt("Masukkan Nomor WhatsApp Anda (Contoh: 082371729760):");
-            if (!noHp) return;
+      function mintaPairingWA() {
+    const noHp = prompt("Masukkan Nomor WhatsApp Anda (Contoh: 082371729760):");
+    if (!noHp) return;
 
-            const btn = document.getElementById('btnPairingWA');
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-            btn.disabled = true;
+    const btn = document.getElementById('btnPairingWA');
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
+    btn.disabled = true;
 
-            fetch(`/api/request-pairing?userId=${currentUserId}&phone=${encodeURIComponent(noHp)}`)
-                .then(res => res.json())
-                .then(data => {
-                    alert("Mempersiapkan kode tautan. Silakan tunggu 3-5 detik...");
-                    setTimeout(() => {
-                        btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA`;
-                        btn.disabled = false;
-                        cekStatusWA();
-                    }, 3000);
-                });
-        }
+    fetch(`/api/request-pairing?userId=${currentUserId}&phone=${encodeURIComponent(noHp)}`)
+        .then(res => res.json())
+        .then(data => {
+            // Langsung secara berkala mengecek status hingga kode tautan muncul di layar
+            let hitung = 0;
+            const intervalCek = setInterval(() => {
+                cekStatusWA();
+                hitung++;
+                if (hitung >= 5) { // Setelah 5 detik kembalikan tombol
+                    clearInterval(intervalCek);
+                    btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA`;
+                    btn.disabled = false;
+                }
+            }, 1000);
+        })
+        .catch(err => {
+            alert("Gagal memproses permintaan kode.");
+            btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA`;
+            btn.disabled = false;
+        });
+}
 
         function resetWA() {
             if (!confirm('Apakah Anda yakin ingin mereset sesi WhatsApp?')) return;
