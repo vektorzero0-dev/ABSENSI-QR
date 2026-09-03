@@ -43,6 +43,23 @@ const waStatus = {};
 const pairingCodes = {};
 const reconnectTimers = {}; // Mencegah looping restart berulang
 
+// --- HELPER DYNAMIC NAMA SEKOLAH (DEFAULT GENERIK) --- //
+let cachedNamaSekolah = null;
+
+async function getNamaSekolah() {
+    if (cachedNamaSekolah) return cachedNamaSekolah;
+    try {
+        const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = 'NAMA_SEKOLAH' LIMIT 1");
+        if (res.rows.length > 0 && res.rows[0].nilai) {
+            cachedNamaSekolah = res.rows[0].nilai.trim();
+            return cachedNamaSekolah;
+        }
+    } catch (e) {
+        // Jika tabel pengaturan belum ada, fallback ke nama generik
+    }
+    return 'SD NEGERI DEMO';
+}
+
 function bersihkanGelar(nama) {
     if (!nama) return '';
     return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
@@ -71,7 +88,6 @@ async function getAuthState(userId) {
 
 async function connectToWhatsApp(userId, phoneNumber = null) {
     try {
-        // Bersihkan timer pending jika ada request ulang
         if (reconnectTimers[userId]) {
             clearTimeout(reconnectTimers[userId]);
             delete reconnectTimers[userId];
@@ -106,7 +122,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
 
-        // MINTA KODE PAIRING (JIKA DIPANGGUL DENGAN NOMOR HP)
         if (phoneNumber && !sock.authState.creds.registered) {
             setTimeout(async () => {
                 try {
@@ -128,7 +143,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
-            // QR CODE GENERATION (DENGAN DEBOUNCE TERKONTROL)
             if (qr && !phoneNumber && !sock.authState.creds.registered) {
                 try {
                     qrCodes[userId] = await generateQRDataURL(qr);
@@ -157,7 +171,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                // Hanya hapus sesi jika di-logout resmi dari HP (401)
                 const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
                 console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
@@ -165,7 +178,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                 delete waSessions[userId];
 
                 if (!isLoggedOut) {
-                    // Beri jeda 8 detik agar tidak looping kedap-kedip
                     console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
                     if (!reconnectTimers[userId]) {
                         reconnectTimers[userId] = setTimeout(() => {
@@ -192,19 +204,23 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 
 // ---------------- ROUTES HALAMAN ---------------- //
 
-app.get('/', (req, res) => res.render('login', { error: null }));
+app.get('/', async (req, res) => {
+    const namaSekolah = await getNamaSekolah();
+    res.render('login', { error: null, namaSekolah });
+});
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    const namaSekolah = await getNamaSekolah();
     try {
-        if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.' });
+        if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.', namaSekolah });
 
         const result = await pool.query(
             'SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
             [username.trim(), password.trim()]
         );
 
-        if (result.rows.length === 0) return res.render('login', { error: 'Username atau kata sandi tidak valid.' });
+        if (result.rows.length === 0) return res.render('login', { error: 'Username atau kata sandi tidak valid.', namaSekolah });
 
         const user = result.rows[0];
         req.session.userId = user.id;
@@ -215,13 +231,14 @@ app.post('/login', async (req, res) => {
             return res.redirect(`/wali?userId=${user.id}`);
         }
     } catch (err) {
-        return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message });
+        return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message, namaSekolah });
     }
 });
 
 app.get('/admin', async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId || 1;
     try {
+        const namaSekolah = await getNamaSekolah();
         const usersRes = await pool.query(`
             SELECT u.id, u.nama, u.username, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
             FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
@@ -264,16 +281,17 @@ app.get('/admin', async (req, res) => {
             siswa: siswaData,
             kelas: kelasRes.rows || [],
             absensiHariIni: absensiFormatted,
-            userId: userId
+            userId: userId,
+            namaSekolah: namaSekolah
         });
     } catch (err) {
         res.status(500).send("Kesalahan Database: " + err.message);
     }
 });
 
-// === SISIPKAN ROUTE KHUSUS CETAK KARTU INI DENGAN BENAR ===
 app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
     try {
+        const namaSekolah = await getNamaSekolah();
         const siswaRes = await pool.query(`
             SELECT s.id, s.nama, s.nomor_wa_ortu, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id ORDER BY s.nama ASC
@@ -284,7 +302,7 @@ app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
             return { ...s, qrImage };
         }));
 
-        res.render('cetak-kartu', { siswa: siswaData });
+        res.render('cetak-kartu', { siswa: siswaData, namaSekolah: namaSekolah });
     } catch (err) {
         res.status(500).send("Gagal memuat kartu: " + err.message);
     }
@@ -295,6 +313,7 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     if (!userId) return res.redirect('/');
 
     try {
+        const namaSekolah = await getNamaSekolah();
         const userRes = await pool.query(`
             SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
             FROM users u
@@ -364,7 +383,8 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
             absensiHariIni: absensiFormatted,
             userId: userId,
             statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
-            qrCodeWA: qrCodes[userId] || null
+            qrCodeWA: qrCodes[userId] || null,
+            namaSekolah: namaSekolah
         });
     } catch (err) {
         console.error("Dashboard Error User #" + userId + ":", err);
@@ -372,9 +392,57 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     }
 });
 
-app.get(['/scan', '/scanner'], (req, res) => {
+app.get(['/scan', '/scanner'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId || 1;
-    res.render('scan', { userId: userId });
+    const namaSekolah = await getNamaSekolah();
+    res.render('scan', { userId: userId, namaSekolah: namaSekolah });
+});
+
+// ---------------- API PENGATURAN SEKOLAH ---------------- //
+
+app.post('/api/sekolah/update', async (req, res) => {
+    const { nama_sekolah } = req.body;
+    try {
+        if (!nama_sekolah || !nama_sekolah.trim()) {
+            return res.status(400).send("Nama sekolah tidak boleh kosong.");
+        }
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pengaturan (
+                kunci VARCHAR(50) PRIMARY KEY,
+                nilai TEXT NOT NULL
+            )
+        `);
+
+        await pool.query(`
+            INSERT INTO pengaturan (kunci, nilai) VALUES ('NAMA_SEKOLAH', $1)
+            ON CONFLICT (kunci) DO UPDATE SET nilai = EXCLUDED.nilai
+        `, [nama_sekolah.trim()]);
+
+        cachedNamaSekolah = nama_sekolah.trim();
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal memperbarui nama sekolah: " + err.message);
+    }
+});
+
+// ---------------- API KELOLA AKUN PENGGUNA (ADMINISTRATOR & GURU) ---------------- //
+
+app.post('/api/admin/tambah', async (req, res) => {
+    const { nama, username, password, role, kelas_id } = req.body;
+    try {
+        if (!nama || !username || !password) return res.status(400).send("Nama, Username, dan Password wajib diisi.");
+        const userRole = (role && role.toUpperCase() === 'ADMIN') ? 'ADMIN' : 'WALI_KELAS';
+        const parsedKelasId = (userRole === 'WALI_KELAS' && kelas_id) ? parseInt(kelas_id) : null;
+
+        await pool.query(
+            'INSERT INTO users (nama, username, password, role, kelas_id) VALUES ($1, $2, $3, $4, $5)',
+            [nama.trim(), username.trim(), password.trim(), userRole, parsedKelasId]
+        );
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menambah pengguna: " + err.message);
+    }
 });
 
 // ---------------- API KELOLA KELAS & ROMBEL ---------------- //
@@ -661,6 +729,7 @@ app.post('/api/scan', async (req, res) => {
     try {
         const parsedSiswaId = parseInt(siswa_id);
         const parsedScannedBy = parseInt(scanned_by) || 1;
+        const namaSekolah = await getNamaSekolah();
 
         const siswaRes = await pool.query(`
             SELECT s.id, s.nama, s.nomor_wa_ortu, COALESCE(k.nama_kelas, '-') AS nama_kelas 
@@ -695,7 +764,7 @@ app.post('/api/scan', async (req, res) => {
             if (phone.startsWith('0')) phone = '62' + phone.slice(1);
             const formattedJid = phone + '@s.whatsapp.net';
 
-            const pesan = `*UPTD SD NEGERI 1 KARYA MULYA SARI*\n` +
+            const pesan = `*${namaSekolah.toUpperCase()}*\n` +
                           `*PEMBERITAHUAN PRESENSI KEHADIRAN SISWA*\n` +
                           `_________________________________________\n\n` +
                           `Yth. Bapak/Ibu Orang Tua / Wali Murid,\n\n` +
@@ -706,7 +775,7 @@ app.post('/api/scan', async (req, res) => {
                           `• Tanggal : *${tglWib}*\n` +
                           `• Status Kehadiran : *HADIR (Scan Kartu) ✅*\n\n` +
                           `Terima kasih atas perhatian dan kerja samanya.\n\n` +
-                          `_Pesan otomatis ini dikirim oleh Sistem Presensi Terpadu UPTD SD Negeri 1 Karya Mulya Sari._`;
+                          `_Pesan otomatis ini dikirim oleh Sistem Presensi Terpadu ${namaSekolah}._`;
 
             waClient.sendMessage(formattedJid, { text: pesan }).catch(e => console.error("Gagal Mengirim WA:", e.message));
             statusWA = "Notifikasi WhatsApp Berhasil Dikirimkan ke Wali Murid ✅";
@@ -781,6 +850,7 @@ app.get('/api/absensi/export', async (req, res) => {
     if (!bulan || !tahun) return res.status(400).send("Bulan dan Tahun wajib diisi.");
 
     try {
+        const namaSekolah = await getNamaSekolah();
         let query = `
             SELECT s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas, COUNT(a.id) AS total_hadir
             FROM siswa s
@@ -808,7 +878,7 @@ app.get('/api/absensi/export', async (req, res) => {
             const worksheet = workbook.addWorksheet('Rekap Absensi');
 
             worksheet.mergeCells('A1:D1');
-            worksheet.getCell('A1').value = `UPTD SD NEGERI 1 KARYA MULYA SARI`;
+            worksheet.getCell('A1').value = namaSekolah.toUpperCase();
             worksheet.getCell('A1').font = { bold: true, size: 14 };
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
 
@@ -859,7 +929,7 @@ app.get('/api/absensi/export', async (req, res) => {
             const doc = new Document({
                 sections: [{
                     children: [
-                        new Paragraph({ text: "UPTD SD NEGERI 1 KARYA MULYA SARI", heading: "Heading1", alignment: AlignmentType.CENTER }),
+                        new Paragraph({ text: namaSekolah.toUpperCase(), heading: "Heading1", alignment: AlignmentType.CENTER }),
                         new Paragraph({ text: judul, heading: "Heading2", alignment: AlignmentType.CENTER }),
                         new Paragraph({ text: "" }),
                         new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } })
@@ -879,7 +949,7 @@ app.get('/api/absensi/export', async (req, res) => {
             res.setHeader('Content-Disposition', `attachment; filename=Rekap_Presensi_${bulan}_${tahun}.pdf`);
 
             doc.pipe(res);
-            doc.fontSize(14).font('Helvetica-Bold').text('UPTD SD NEGERI 1 KARYA MULYA SARI', { align: 'center' });
+            doc.fontSize(14).font('Helvetica-Bold').text(namaSekolah.toUpperCase(), { align: 'center' });
             doc.fontSize(11).font('Helvetica').text(judul, { align: 'center' });
             doc.moveDown(1.5);
 
