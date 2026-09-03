@@ -251,14 +251,26 @@ app.get('/admin', async (req, res) => {
         `);
         const kelasRes = await pool.query(`SELECT * FROM kelas ORDER BY id ASC`);
 
-        const absensiRes = await pool.query(`
-            SELECT a.id, a.waktu, COALESCE(a.jenis_absen, 'DATANG') AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
-            FROM absensi a 
-            JOIN siswa s ON a.siswa_id = s.id 
-            LEFT JOIN kelas k ON s.kelas_id = k.id 
-            WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
-            ORDER BY a.waktu DESC
-        `);
+        let absensiRes;
+        try {
+            absensiRes = await pool.query(`
+                SELECT a.id, a.waktu, COALESCE(a.jenis_absen, 'DATANG') AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+                FROM absensi a 
+                JOIN siswa s ON a.siswa_id = s.id 
+                LEFT JOIN kelas k ON s.kelas_id = k.id 
+                WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+                ORDER BY a.waktu DESC
+            `);
+        } catch (e) {
+            absensiRes = await pool.query(`
+                SELECT a.id, a.waktu, 'DATANG' AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+                FROM absensi a 
+                JOIN siswa s ON a.siswa_id = s.id 
+                LEFT JOIN kelas k ON s.kelas_id = k.id 
+                WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+                ORDER BY a.waktu DESC
+            `);
+        }
 
         const absensiFormatted = absensiRes.rows.map(row => {
             const dateObj = new Date(row.waktu);
@@ -313,6 +325,7 @@ app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
     }
 });
 
+// ROUTE DASBOR WALI KELAS (DENGAN FALLBACK AMAN)
 app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId;
     if (!userId) return res.redirect('/');
@@ -320,12 +333,22 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     try { namaSekolah = await getNamaSekolah(); } catch (e) {}
 
     try {
-        const userRes = await pool.query(`
-            SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
-            FROM users u
-            LEFT JOIN kelas k ON u.kelas_id = k.id
-            WHERE u.id = $1
-        `, [userId]);
+        let userRes;
+        try {
+            userRes = await pool.query(`
+                SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+                FROM users u
+                LEFT JOIN kelas k ON u.kelas_id = k.id
+                WHERE u.id = $1
+            `, [userId]);
+        } catch (e) {
+            userRes = await pool.query(`
+                SELECT u.id, u.nama, u.role, u.kelas_id, 'SENDIRI' AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+                FROM users u
+                LEFT JOIN kelas k ON u.kelas_id = k.id
+                WHERE u.id = $1
+            `, [userId]);
+        }
 
         if (userRes.rows.length === 0) return res.redirect('/');
         
@@ -347,15 +370,26 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
         siswaQuery += ` ORDER BY s.nama ASC`;
         const siswaRes = await pool.query(siswaQuery, queryParamsSiswa);
 
-        let absensiQuery = `
-            SELECT a.id, a.waktu, COALESCE(a.jenis_absen, 'DATANG') AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
-            FROM absensi a 
-            JOIN siswa s ON a.siswa_id = s.id 
-            LEFT JOIN kelas k ON s.kelas_id = k.id 
-            WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
-        `;
-        const queryParamsAbsensi = [];
+        let absensiQuery;
+        try {
+            absensiQuery = `
+                SELECT a.id, a.waktu, COALESCE(a.jenis_absen, 'DATANG') AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+                FROM absensi a 
+                JOIN siswa s ON a.siswa_id = s.id 
+                LEFT JOIN kelas k ON s.kelas_id = k.id 
+                WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+            `;
+        } catch (e) {
+            absensiQuery = `
+                SELECT a.id, a.waktu, 'DATANG' AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+                FROM absensi a 
+                JOIN siswa s ON a.siswa_id = s.id 
+                LEFT JOIN kelas k ON s.kelas_id = k.id 
+                WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+            `;
+        }
 
+        const queryParamsAbsensi = [];
         if (userRaw.kelas_id) {
             absensiQuery += ` AND s.kelas_id = $1`;
             queryParamsAbsensi.push(parseInt(userRaw.kelas_id));
@@ -723,22 +757,31 @@ app.post('/api/scan', async (req, res) => {
 
         const siswa = siswaRes.rows[0];
 
-        // Ambil Data Opsi WA Guru yang Melakukan Scan
-        const guruRes = await pool.query(`
-            SELECT id, role, COALESCE(mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa 
-            FROM users WHERE id = $1
-        `, [parsedScannedBy]);
-
-        const guru = guruRes.rows[0];
+        // Ambil Data Opsi WA Guru yang Melakukan Scan (Safe Query)
+        let guru = { mode_pengirim_wa: 'SENDIRI' };
+        try {
+            const guruRes = await pool.query(`
+                SELECT id, role, COALESCE(mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa 
+                FROM users WHERE id = $1
+            `, [parsedScannedBy]);
+            if (guruRes.rows.length > 0) guru = guruRes.rows[0];
+        } catch (e) {}
 
         const now = new Date();
         const jamWib = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':') + ' WIB';
         const tglWib = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-        await pool.query(
-            `INSERT INTO absensi (siswa_id, status, scanned_by, waktu, jenis_absen) VALUES ($1, 'HADIR', $2, NOW() AT TIME ZONE 'Asia/Jakarta', $3)`,
-            [siswa.id, parsedScannedBy, tipeAbsen]
-        );
+        try {
+            await pool.query(
+                `INSERT INTO absensi (siswa_id, status, scanned_by, waktu, jenis_absen) VALUES ($1, 'HADIR', $2, NOW() AT TIME ZONE 'Asia/Jakarta', $3)`,
+                [siswa.id, parsedScannedBy, tipeAbsen]
+            );
+        } catch (e) {
+            await pool.query(
+                `INSERT INTO absensi (siswa_id, status, scanned_by, waktu) VALUES ($1, 'HADIR', $2, NOW() AT TIME ZONE 'Asia/Jakarta')`,
+                [siswa.id, parsedScannedBy]
+            );
+        }
 
         // PENENTUAN SOCKET WA PENGIRIM (NOMOR GURU VS NOMOR ADMIN)
         let waClient = null;
