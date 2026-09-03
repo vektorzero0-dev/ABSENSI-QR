@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemindai Presensi Kartu Siswa - UPTD SD NEGERI 1 KARYA MULYA SARI</title>
+    
+    <!-- 🟢 DUKUNGAN PWA (PROGRESSIVE WEB APP) -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0284c7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
+
+    <!-- Header Pemindai -->
+    <header class="bg-blue-900 text-white shadow-md border-b-4 border-emerald-500">
+        <div class="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2 rounded-lg border border-white/20">
+                    <i class="fa-solid fa-qrcode text-xl text-emerald-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold uppercase tracking-wide">Pemindai Presensi Siswa</h1>
+                    <p class="text-[11px] text-blue-200">UPTD SD Negeri 1 Karya Mulya Sari</p>
+                </div>
+            </div>
+            <a href="javascript:history.back()" class="bg-blue-950 hover:bg-blue-800 text-blue-100 text-xs px-3 py-2 rounded-xl border border-blue-700 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-left"></i> Kembali
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-xl mx-auto w-full p-4 flex-1">
+
+        <!-- Area Kamera Scanner -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-md mb-4 text-center">
+            <div class="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-300 mb-3 min-h-[250px] flex items-center justify-center">
+                <div id="reader" class="w-full"></div>
+            </div>
+
+            <!-- Pilihan Switch Kamera jika Perangkat Memiliki Lebih dari 1 Kamera -->
+            <div id="cameraSelectContainer" class="hidden mb-3">
+                <select id="cameraSelect" onchange="gantiKamera(this.value)" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl p-2 focus:ring-2 focus:ring-emerald-600 focus:outline-none">
+                </select>
+            </div>
+
+            <p id="cameraStatusText" class="text-xs text-slate-600 flex items-center justify-center gap-1.5 font-medium">
+                <i class="fa-solid fa-camera text-blue-900"></i> Memuat kamera... Memohon izin akses.
+            </p>
+        </div>
+
+        <!-- Kartu Hasil Sukses -->
+        <div id="resultCard" class="hidden bg-white border border-emerald-500/40 rounded-2xl p-5 shadow-lg transition-all duration-300">
+            <div class="flex items-start justify-between border-b border-slate-100 pb-3 mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-emerald-600">
+                        <i class="fa-solid fa-circle-check text-2xl"></i>
+                    </div>
+                    <div>
+                        <span class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">Presensi Berhasil Terdaftar</span>
+                        <h2 id="resNama" class="text-base font-bold text-slate-900 mt-1">-</h2>
+                    </div>
+                </div>
+                <span id="resWaktu" class="text-xs font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">-</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <span class="text-[10px] text-slate-500 block font-medium">Rombongan Belajar</span>
+                    <strong id="resKelas" class="text-slate-800">-</strong>
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <span class="text-[10px] text-slate-500 block font-medium">ID Kartu</span>
+                    <strong id="resID" class="text-emerald-700 font-mono">-</strong>
+                </div>
+            </div>
+
+            <div id="resWAStatus" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs p-2.5 rounded-xl flex items-center gap-2">
+                <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
+                <span id="resWAMsg">-</span>
+            </div>
+        </div>
+
+        <!-- Kartu Error -->
+        <div id="errorCard" class="hidden bg-white border border-rose-300 rounded-2xl p-4 shadow-md mt-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-rose-600">
+                    <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-rose-700">Gagal Melakukan Presensi</h3>
+                    <p id="errorMsg" class="text-xs text-slate-600 mt-0.5">-</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const userId = <%= userId %>;
+        let isProcessing = false;
+        let html5QrCode = null;
+
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audio.play().catch(e => console.log('Audio error:', e));
+
+            fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siswa_id: decodedText, scanned_by: userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const resCard = document.getElementById('resultCard');
+                const errCard = document.getElementById('errorCard');
+
+                if (data.success) {
+                    errCard.classList.add('hidden');
+                    document.getElementById('resNama').innerText = data.siswa.nama;
+                    document.getElementById('resKelas').innerText = data.siswa.nama_kelas;
+                    document.getElementById('resID').innerText = 'ID: #' + data.siswa.id;
+                    document.getElementById('resWaktu').innerText = data.siswa.waktu;
+                    document.getElementById('resWAMsg').innerText = data.message;
+                    resCard.classList.remove('hidden');
+                } else {
+                    resCard.classList.add('hidden');
+                    document.getElementById('errorMsg').innerText = data.message;
+                    errCard.classList.remove('hidden');
+                }
+
+                setTimeout(() => { isProcessing = false; }, 3000);
+            })
+            .catch(err => {
+                console.error("Kesalahan Pemindaian:", err);
+                setTimeout(() => { isProcessing = false; }, 3000);
+            });
+        }
+
+        function gantiKamera(cameraId) {
+            if (!html5QrCode) return;
+
+            const cameraStatus = document.getElementById('cameraStatusText');
+            cameraStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-blue-900"></i> Mengganti perangkat kamera...`;
+
+            html5QrCode.stop().then(() => {
+                html5QrCode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 220, height: 220 } },
+                    onScanSuccess
+                ).then(() => {
+                    cameraStatus.innerHTML = `<i class="fa-solid fa-camera text-emerald-600"></i> Kamera Aktif. Arahkan Kode QR Siswa ke Kotak Pemindai`;
+                }).catch(err => {
+                    console.error("Gagal start kamera:", err);
+                    cameraStatus.innerHTML = `<span class="text-rose-600 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Gagal mengaktifkan kamera terpilih.</span>`;
+                });
+            }).catch(err => {
+                console.error("Gagal stop kamera:", err);
+            });
+        }
+
+        // Inisialisasi Pembukaan Kamera Otomatis
+        document.addEventListener("DOMContentLoaded", () => {
+            const cameraStatus = document.getElementById('cameraStatusText');
+            const cameraSelectContainer = document.getElementById('cameraSelectContainer');
+            const cameraSelect = document.getElementById('cameraSelect');
+
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length > 0) {
+                    let selectedCameraId = devices[0].id;
+
+                    // Isi Pilihan Opsi Kamera
+                    if (devices.length > 1) {
+                        cameraSelect.innerHTML = '';
+                        devices.forEach((dev, idx) => {
+                            const option = document.createElement('option');
+                            option.value = dev.id;
+                            option.text = dev.label || `Kamera ${idx + 1}`;
+                            cameraSelect.appendChild(option);
+                        });
+                        cameraSelectContainer.classList.remove('hidden');
+                    }
+
+                    // Otomatis cari kamera belakang
+                    const backCam = devices.find(d => 
+                        d.label.toLowerCase().includes('back') || 
+                        d.label.toLowerCase().includes('belakang') ||
+                        d.label.toLowerCase().includes('environment')
+                    );
+                    
+                    if (backCam) {
+                        selectedCameraId = backCam.id;
+                        if (cameraSelect) cameraSelect.value = backCam.id;
+                    }
+
+                    html5QrCode = new Html5Qrcode("reader");
+                    html5QrCode.start(
+                        selectedCameraId, 
+                        { fps: 10, qrbox: { width: 220, height: 220 } },
+                        onScanSuccess
+                    ).then(() => {
+                        cameraStatus.innerHTML = `<i class="fa-solid fa-camera text-emerald-600"></i> Kamera Aktif. Arahkan Kode QR Siswa ke Kotak Pemindai`;
+                    }).catch(err => {
+                        console.error("Gagal menjalankan kamera:", err);
+                        cameraStatus.innerHTML = `<span class="text-rose-600 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Gagal membuka kamera. Pastikan izin kamera sudah diberikan.</span>`;
+                    });
+                } else {
+                    cameraStatus.innerHTML = `<span class="text-rose-600 font-bold"><i class="fa-solid fa-video-slash"></i> Perangkat kamera tidak ditemukan.</span>`;
+                }
+            }).catch(err => {
+                console.error("Error akses kamera:", err);
+                cameraStatus.innerHTML = `<span class="text-rose-600 font-bold"><i class="fa-solid fa-lock"></i> Izin kamera ditolak atau web belum menggunakan HTTPS!</span>`;
+            });
+        });
+    </script>
+
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-[11px] text-slate-600">
+        <p>© UPTD SD Negeri 1 Karya Mulya Sari. Seluruh Hak Cipta Dilindungi.</p>
+        <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-600">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-blue-700 font-medium hover:underline">0823-7172-9760</a></p>
+    </footer>
+
+</body>
+</html>
