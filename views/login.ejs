@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Presensi Terpadu - UPTD SD NEGERI 1 KARYA MULYA SARI</title>
+    <title>Sistem Presensi Terpadu - <%= namaSekolah %></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -12,7 +12,6 @@
         
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
 
-        /* LATAR BELAKANG TERANG DENGAN GRADASI BERGERAK & MOTIF */
         .bg-light-animated {
             background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
             background-size: 400% 400%;
@@ -29,14 +28,12 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* BOLA CAHAYA ANIMASI HEADER */
         @keyframes pulseGlow {
             0%, 100% { opacity: 0.3; transform: scale(1); }
             50% { opacity: 0.7; transform: scale(1.2); }
         }
         .animate-glow { animation: pulseGlow 5s infinite ease-in-out; }
 
-        /* KARTU LOGIN BERMOTIF & BERANIMASI (TEMA SOFT BLUE) */
         .glass-card {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(239, 246, 255, 0.9) 100%);
             backdrop-filter: blur(16px);
@@ -47,7 +44,6 @@
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* MOTIF PATTERN INTERNAL KARTU */
         .glass-card::before {
             content: "";
             position: absolute;
@@ -63,12 +59,6 @@
             border-color: #93c5fd;
         }
 
-        @keyframes cardEnter {
-            from { opacity: 0; transform: translateY(16px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .animate-card { animation: cardEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
         .input-pro { transition: all 0.2s ease-in-out; }
         .input-pro:focus {
             background-color: #ffffff;
@@ -83,10 +73,8 @@
 </head>
 <body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased relative overflow-x-hidden">
 
-    <!-- Header Resmi Sekolah Dengan Animasi Cahaya -->
+    <!-- Header Resmi Sekolah -->
     <header class="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-900 text-white border-b-4 border-amber-500 sticky top-0 z-20 overflow-hidden shadow-lg">
-        
-        <!-- BOLA CAHAYA ANIMASI ATAS -->
         <div class="absolute -top-12 left-1/4 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl animate-glow pointer-events-none"></div>
         <div class="absolute -bottom-10 right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl animate-glow pointer-events-none" style="animation-delay: 2s;"></div>
 
@@ -96,7 +84,7 @@
                     <i class="fa-solid fa-graduation-cap text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xs sm:text-sm font-extrabold tracking-wide uppercase text-slate-100">UPTD SD NEGERI 1 KARYA MULYA SARI</h1>
+                    <h1 class="text-xs sm:text-sm font-extrabold tracking-wide uppercase text-slate-100"><%= namaSekolah %></h1>
                     <p class="text-[10px] text-blue-200 font-medium">Sistem Informasi Manajemen Presensi Terpadu Siswa</p>
                 </div>
             </div>
@@ -108,7 +96,7 @@
 
     <!-- Content Utama -->
     <main class="flex-1 flex items-center justify-center p-4 my-6 z-10">
-        <div class="w-full max-w-md glass-card rounded-3xl p-7 animate-card">
+        <div class="w-full max-w-md glass-card rounded-3xl p-7">
             
             <div class="text-center mb-6 relative z-10">
                 <div class="inline-flex bg-blue-600 text-white p-3.5 rounded-2xl shadow-md mb-2.5">
@@ -177,7 +165,7 @@
     </script>
 
     <footer class="bg-slate-900 text-white border-t border-slate-800 py-3 text-center text-[11px] z-10">
-        <p>© UPTD SD Negeri 1 Karya Mulya Sari. Seluruh Hak Cipta Dilindungi.</p>
+        <p>© <%= namaSekolah %>. Seluruh Hak Cipta Dilindungi.</p>
         <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-200">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-amber-400 font-medium hover:underline">0823-7172-9760</a></p>
     </footer>
 
