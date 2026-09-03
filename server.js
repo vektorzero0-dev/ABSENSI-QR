@@ -655,8 +655,10 @@ app.get('/api/reset-wa', async (req, res) => {
 });
 
 app.post('/api/scan', async (req, res) => {
-    const { siswa_id, scanned_by } = req.body;
+    const { siswa_id, scanned_by, jenis_absen } = req.body;
     if (!siswa_id) return res.status(400).json({ success: false, message: "Kode QR tidak terdeteksi." });
+
+    const tipeAbsen = (jenis_absen && jenis_absen.toUpperCase() === 'PULANG') ? 'PULANG' : 'DATANG';
 
     try {
         const parsedSiswaId = parseInt(siswa_id);
@@ -677,9 +679,10 @@ app.post('/api/scan', async (req, res) => {
         const jamWib = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':') + ' WIB';
         const tglWib = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+        // Simpan data absen lengkap dengan jenis_absen (DATANG / PULANG)
         await pool.query(
-            `INSERT INTO absensi (siswa_id, status, scanned_by, waktu) VALUES ($1, 'HADIR', $2, NOW() AT TIME ZONE 'Asia/Jakarta')`,
-            [siswa.id, parsedScannedBy]
+            `INSERT INTO absensi (siswa_id, status, scanned_by, waktu, jenis_absen) VALUES ($1, 'HADIR', $2, NOW() AT TIME ZONE 'Asia/Jakarta', $3)`,
+            [siswa.id, parsedScannedBy, tipeAbsen]
         );
 
         let waClient = waSessions[parsedScannedBy];
@@ -695,13 +698,18 @@ app.post('/api/scan', async (req, res) => {
             if (phone.startsWith('0')) phone = '62' + phone.slice(1);
             const formattedJid = phone + '@s.whatsapp.net';
 
+            // Draf Pesan WA Otomatis Disesuaikan untuk Datang / Pulang
+            const teksHeader = tipeAbsen === 'PULANG' ? 'PRESENSI KEPULANGAN SISWA' : 'PRESENSI KEHADIRAN SISWA';
+            const teksAktivitas = tipeAbsen === 'PULANG' ? 'telah selesai mengikuti KBM di sekolah dan melakukan presensi kepulangan untuk pulang ke rumah' : 'telah tiba di sekolah dan melakukan presensi kedatangan';
+
             const pesan = `*UPTD SD NEGERI 1 KARYA MULYA SARI*\n` +
-                          `*PEMBERITAHUAN PRESENSI KEHADIRAN SISWA*\n` +
+                          `*PEMBERITAHUAN ${teksHeader}*\n` +
                           `_________________________________________\n\n` +
                           `Yth. Bapak/Ibu Orang Tua / Wali Murid,\n\n` +
-                          `Diberitahukan bahwa putra/putri Anda telah tiba di sekolah dan melakukan presensi kehadiran:\n\n` +
+                          `Diberitahukan bahwa putra/putri Anda ${teksAktivitas}:\n\n` +
                           `• Nama Siswa : *${siswa.nama}*\n` +
                           `• Kelas / Rombel : *${siswa.nama_kelas}*\n` +
+                          `• Jenis Presensi : *${tipeAbsen === 'PULANG' ? 'PRESENSI PULANG 🏠' : 'PRESENSI MASUK/DATANG 🏫'}*\n` +
                           `• Waktu Scan : *${jamWib}*\n` +
                           `• Tanggal : *${tglWib}*\n` +
                           `• Status Kehadiran : *HADIR (Scan Kartu) ✅*\n\n` +
@@ -709,7 +717,7 @@ app.post('/api/scan', async (req, res) => {
                           `_Pesan otomatis ini dikirim oleh Sistem Presensi Terpadu UPTD SD Negeri 1 Karya Mulya Sari._`;
 
             waClient.sendMessage(formattedJid, { text: pesan }).catch(e => console.error("Gagal Mengirim WA:", e.message));
-            statusWA = "Notifikasi WhatsApp Berhasil Dikirimkan ke Wali Murid ✅";
+            statusWA = `Notifikasi WhatsApp (${tipeAbsen}) Berhasil Dikirimkan ke Wali Murid ✅`;
         }
 
         return res.json({
@@ -719,7 +727,8 @@ app.post('/api/scan', async (req, res) => {
                 id: siswa.id,
                 nama: siswa.nama,
                 nama_kelas: siswa.nama_kelas,
-                waktu: jamWib
+                waktu: jamWib,
+                jenis_absen: tipeAbsen
             }
         });
 
