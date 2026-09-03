@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Administrator - <%= namaSekolah %></title>
     
-    <!-- CSS Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
-    <!-- CSS Pendukung -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -21,13 +19,12 @@
         .offcanvas { z-index: 1055 !important; }
         .offcanvas-backdrop { z-index: 1050 !important; }
 
-        /* LATAR BELAKANG TERANG BERANIMASI DENGAN PATTERN GEOMETRIS */
         .bg-light-animated {
             background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
             background-image: 
-                radial-gradient(rgba(15, 23, 42, 0.06) 1.2px, transparent 1.2px),
+                radial-gradient(rgba(15, 23, 42, 0.05) 1.2px, transparent 1.2px),
                 linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #e2e8f0);
             background-size: 20px 20px, 400% 400%;
         }
@@ -38,7 +35,6 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* Scrollbar Halus */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -49,12 +45,10 @@
         }
         .animate-glow { animation: pulseGlow 5s infinite ease-in-out; }
 
-        /* KARTU PRO DENGAN TEMA WARNA & HOVER EFFECT */
         .card-pro {
             position: relative;
             overflow: hidden;
             border-radius: 1.25rem;
-            backdrop-filter: blur(12px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -74,19 +68,19 @@
         }
 
         .card-amber-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(254, 243, 199, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
             border: 1px solid #fde68a;
         }
         .card-emerald-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(209, 250, 229, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
             border: 1px solid #a7f3d0;
         }
         .card-blue-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(224, 242, 254, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
             border: 1px solid #bfdbfe;
         }
         .card-purple-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
             border: 1px solid #e9d5ff;
         }
 
@@ -102,7 +96,6 @@
 </head>
 <body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
 
-<!-- NAVBAR HEADER ATAS -->
 <nav class="bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-md px-4 py-3 flex items-center justify-between border-b border-amber-500/50">
   <div class="flex items-center gap-3">
     <button type="button" onclick="bukaSidebar()" class="btn-interactive bg-blue-800 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl border border-blue-600 font-bold text-xs flex items-center gap-2 transition shadow-sm">
@@ -119,7 +112,6 @@
   </div>
 </nav>
 
-<!-- SIDEBAR SLIDE ADMIN -->
 <div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 -translate-x-full flex flex-col justify-between border-r border-slate-200">
   <div>
     <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
@@ -140,9 +132,6 @@
       </a>
       <a href="/admin/cetak-kartu" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-address-card text-purple-600"></i> Cetak Kartu Siswa
-      </a>
-      <a href="#section-sekolah" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-school-flag text-amber-600"></i> Nama Sekolah
       </a>
       <a href="#section-dapodik" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-file-excel text-emerald-600"></i> Impor Excel Dapodik
@@ -168,7 +157,6 @@
 
 <div id="sidebarOverlay" onclick="tutupSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden transition-opacity backdrop-blur-xs"></div>
 
-    <!-- HEADER RESMI SEKOLAH BERANIMASI -->
     <header class="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-900 text-white shadow-lg border-b-4 border-amber-500 relative overflow-hidden">
         <div class="absolute -top-12 left-1/4 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl animate-glow pointer-events-none"></div>
         <div class="absolute -bottom-10 right-10 w-36 h-36 bg-amber-400/20 rounded-full blur-3xl animate-glow pointer-events-none" style="animation-delay: 2.5s;"></div>
@@ -196,7 +184,6 @@
 
     <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 animate-fade-in">
 
-        <!-- KOTAK BANNER PROFIL -->
         <div class="card-pro card-amber-theme p-4 mb-6 flex items-center justify-between">
             <div class="flex items-center gap-3 relative z-10">
                 <div class="bg-amber-600 text-white p-3 rounded-xl shadow-md">
@@ -209,7 +196,50 @@
             </div>
         </div>
 
-        <!-- METRIC SUMMARY CARDS -->
+        <!-- PANEL PROFIL SEKOLAH & OPSI WA (KONTROL ADMIN) -->
+        <div class="card-pro card-blue-theme p-5 mb-6">
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
+                <i class="fa-solid fa-school text-blue-700"></i> Pengaturan Profil Sekolah & Notifikasi WhatsApp
+            </h3>
+            
+            <form action="/api/admin/pengaturan/update" method="POST" class="space-y-4 relative z-10">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Nama Resmi Sekolah</label>
+                        <input type="text" name="nama_sekolah" value="<%= namaSekolah %>" required class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Alamat Sekolah</label>
+                        <input type="text" name="alamat_sekolah" value="<%= alamatSekolah %>" placeholder="Alamat lengkap sekolah" class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-blue-200/60 pt-3">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Mode Pengirim WhatsApp Default</label>
+                        <select name="mode_pengirim_wa" class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600">
+                            <option value="ADMIN" <%= modePengirimWA === 'ADMIN' ? 'selected' : '' %>>🏫 Gunakan Satu Nomor WA Admin Terpusat</option>
+                            <option value="SENDIRI" <%= modePengirimWA === 'SENDIRI' ? 'selected' : '' %>>📱 Gunakan Nomor WA Guru Masing-Masing</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center pt-3 sm:pt-4">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="izinkan_guru_pilih_wa" value="YA" class="sr-only peer" <%= izinkanGuruPilihWA === 'YA' ? 'checked' : '' %>>
+                            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-800"></div>
+                            <span class="ml-3 text-xs font-bold text-slate-800">Izinkan Guru Memilih Opsi Pengirim Sendiri di Dasbor</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-1">
+                    <button type="submit" class="btn-interactive bg-blue-900 hover:bg-blue-800 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan Sekolah & WA
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div class="card-pro card-blue-theme p-4 flex items-center justify-between">
                 <div class="relative z-10">
@@ -242,27 +272,6 @@
             </div>
         </div>
 
-        <!-- FITUR TERBARU: KOTAK UBAH NAMA SEKOLAH -->
-        <div id="section-sekolah" class="card-pro card-amber-theme p-5 mb-6">
-            <div class="flex items-center gap-3 mb-3 border-b border-amber-200/60 pb-2 relative z-10">
-                <div class="bg-amber-600 text-white p-2.5 rounded-xl shadow-md">
-                    <i class="fa-solid fa-school-flag text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Pengaturan Identitas Sekolah</h3>
-                    <p class="text-[11px] text-slate-600">Ubah nama resmi instansi sekolah untuk ditampilkan pada kop kartu, laporan, dan notifikasi WA.</p>
-                </div>
-            </div>
-
-            <form action="/api/sekolah/update" method="POST" class="flex flex-col sm:flex-row items-center gap-3 relative z-10">
-                <input type="text" name="nama_sekolah" required value="<%= namaSekolah %>" placeholder="Masukkan Nama Resmi Sekolah" class="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600 w-full">
-                <button type="submit" class="btn-interactive w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-amber-700 shadow-md">
-                    <i class="fa-solid fa-floppy-disk"></i> Simpan Nama Sekolah
-                </button>
-            </form>
-        </div>
-
-        <!-- KOTAK IMPOR DAPODIK -->
         <div id="section-dapodik" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex items-center gap-3 mb-3 border-b border-emerald-200/60 pb-2 relative z-10">
                 <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
@@ -276,16 +285,14 @@
 
             <form id="formImportExcel" onsubmit="prosesImportExcel(event)" class="flex flex-col sm:flex-row items-center gap-3 relative z-10">
                 <input type="file" id="fileExcelInput" accept=".xlsx, .xls, .csv" required class="flex-1 text-xs text-slate-700 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200 border border-emerald-300 rounded-xl p-1 w-full bg-white">
+                
                 <button type="submit" id="btnImportExcel" class="btn-interactive w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-emerald-800 whitespace-nowrap shadow-md">
                     <i class="fa-solid fa-cloud-arrow-up"></i> Upload & Impor Data
                 </button>
             </form>
         </div>
 
-        <!-- KOTAK FORM TAMBAH ROMBEL & GURU -->
         <div id="section-rombel" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            
-            <!-- FORM ROMBEL -->
             <div class="card-pro card-purple-theme p-5">
                 <div class="flex justify-between items-center border-b border-purple-200/60 pb-2 mb-4 relative z-10">
                     <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -324,26 +331,19 @@
                 </div>
             </div>
 
-            <!-- FORM GURU & AKUN ADMIN BARU -->
             <div class="card-pro card-blue-theme p-5">
                 <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
-                    <i class="fa-solid fa-user-plus text-blue-700"></i> Registrasi Akun Pengguna / Guru / Admin
+                    <i class="fa-solid fa-user-plus text-blue-700"></i> Registrasi Akun Wali Kelas / Guru
                 </h3>
-                <form action="/api/admin/tambah" method="POST" class="space-y-3 relative z-10">
+                <form action="/api/guru/tambah" method="POST" class="space-y-3 relative z-10">
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="text" name="nama" required placeholder="Nama Lengkap Personel" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <input type="text" name="username" required placeholder="Username" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                        <input type="text" name="nama" required placeholder="Nama Lengkap Tenaga Pendidik" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                        <input type="text" name="username" required placeholder="Nama Pengguna (Username)" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="password" name="password" required placeholder="Kata Sandi" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <select name="role" required class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                            <option value="WALI_KELAS">Wali Kelas / Guru</option>
-                            <option value="ADMIN">Administrator</option>
-                        </select>
-                    </div>
-                    <div>
-                        <select name="kelas_id" class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                            <option value="">-- Penugasan Rombel (Khusus Wali Kelas) --</option>
+                        <select name="kelas_id" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                            <option value="">-- Penugasan Rombel --</option>
                             <% kelas.forEach(k => { %>
                                 <option value="<%= k.id %>"><%= k.nama_kelas %></option>
                             <% }); %>
@@ -356,7 +356,6 @@
             </div>
         </div>
 
-        <!-- KOTAK REGISTRASI SISWA MANUAL -->
         <div class="card-pro card-amber-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-amber-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-address-card text-amber-700"></i> Registrasi Peserta Didik Baru (Manual)
@@ -376,7 +375,6 @@
             </form>
         </div>
 
-        <!-- KOTAK TABEL DIREKTORI GURU -->
         <div class="card-pro card-blue-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-users-gear text-blue-700"></i> Direktori Akun Tenaga Pendidik
@@ -433,7 +431,6 @@
             </div>
         </div>
 
-        <!-- KOTAK TABEL DIREKTORI SISWA -->
         <div id="section-siswa" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-emerald-200/60 pb-3 relative z-10">
                 <div>
@@ -523,14 +520,13 @@
             </div>
         </div>
 
-        <!-- KOTAK TABEL REKAP PRESENSI HARI INI -->
         <div id="section-presensi" class="card-pro card-purple-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-purple-200/60 pb-3 relative z-10">
                 <div>
                     <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                         <i class="fa-solid fa-clipboard-user text-purple-700"></i> Rekapitulasi Presensi Kehadiran Hari Ini
                     </h3>
-                    <p class="text-[11px] text-slate-600 mt-0.5">Daftar log aktivitas scan kartu siswa yang tercatat hari ini.</p>
+                    <p class="text-[11px] text-slate-600 mt-0.5">Daftar log aktivitas scan kartu siswa (masuk & pulang) yang tercatat hari ini.</p>
                 </div>
 
                 <form action="/api/absensi/reset-riwayat" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat absensi uji coba?\n\nCatatan: Data siswa, guru, dan rombel kelas TIDAK akan terhapus.');">
@@ -546,8 +542,9 @@
                         <tr>
                             <th class="p-3">Nama Siswa</th>
                             <th class="p-3">Rombel Kelas</th>
-                            <th class="p-3">Waktu Presensi</th>
-                            <th class="p-3 text-center">Status Kehadiran</th>
+                            <th class="p-3">Jenis Presensi</th>
+                            <th class="p-3">Waktu Scan</th>
+                            <th class="p-3 text-center">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-purple-100 bg-white/70">
@@ -556,6 +553,17 @@
                                 <tr class="hover:bg-purple-50/50 transition-colors">
                                     <td class="p-3 font-semibold text-slate-900"><%= a.nama_siswa %></td>
                                     <td class="p-3 text-slate-600"><%= a.nama_kelas %></td>
+                                    <td class="p-3">
+                                        <% if (a.jenis_absen === 'PULANG') { %>
+                                            <span class="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
+                                                🏠 PRESENSI PULANG
+                                            </span>
+                                        <% } else { %>
+                                            <span class="bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
+                                                🏫 PRESENSI DATANG
+                                            </span>
+                                        <% } %>
+                                    </td>
                                     <td class="p-3 font-mono text-slate-600"><%= a.waktu_formatted %></td>
                                     <td class="p-3 text-center">
                                         <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
@@ -566,7 +574,7 @@
                             <% }); %>
                         <% } else { %>
                             <tr>
-                                <td colspan="4" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi masuk untuk hari ini.</td>
+                                <td colspan="5" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi masuk/pulang untuk hari ini.</td>
                             </tr>
                         <% } %>
                     </tbody>
@@ -576,10 +584,8 @@
 
     </main>
 
-    <!-- FORM TERSEMBUNYI HAPUS -->
     <form id="formHapusUmum" action="" method="POST" class="hidden"></form>
 
-    <!-- MODAL EDIT DATA GURU -->
     <div id="modalEditGuru" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
@@ -631,7 +637,6 @@
         </div>
     </div>
 
-    <!-- MODAL EDIT DATA SISWA -->
     <div id="modalEditSiswa" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
@@ -676,7 +681,6 @@
         </div>
     </div>
 
-    <!-- SCRIPT JAVASCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
