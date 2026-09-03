@@ -3,7 +3,7 @@ const session = require('express-session');
 const path = require('path');
 const pino = require('pino');
 const makeWASocket = require('@whiskeysockets/baileys').default;
-const { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
+const { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const fs = require('fs');
@@ -41,10 +41,9 @@ const waSessions = {};
 const qrCodes = {};
 const waStatus = {};
 const pairingCodes = {};
-const reconnectTimers = {};
+const reconnectTimers = {}; // Mencegah looping restart berulang[cite: 4]
 
-// ----------------- FUNGSI BANTUAN ----------------- //
-
+// Helper Fungsi Dapatkan Pengaturan Dinamis (Nama Sekolah & Mode Pengirim)
 async function getPengaturan(kunci, defaultValue = '') {
     try {
         const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = $1", [kunci]);
@@ -58,6 +57,7 @@ function bersihkanGelar(nama) {
     return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
 }
 
+// System QR Safe Generator
 async function generateQRDataURL(text) {
     try {
         if (!text) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
@@ -78,10 +78,9 @@ async function getAuthState(userId) {
     return await useMultiFileAuthState(authFolder);
 }
 
-// ----------------- FUNGSI KONEKSI WA (PAIRING CODE + QR CODE) ----------------- //
-
 async function connectToWhatsApp(userId, phoneNumber = null) {
     try {
+        // Bersihkan timer pending jika ada request ulang[cite: 4]
         if (reconnectTimers[userId]) {
             clearTimeout(reconnectTimers[userId]);
             delete reconnectTimers[userId];
@@ -92,60 +91,53 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
             delete waSessions[userId];
         }
 
-        if (phoneNumber) {
-            delete pairingCodes[userId];
-            delete qrCodes[userId];
-        }
-
         waStatus[userId] = phoneNumber ? 'MENUNGGU_PAIRING_CODE' : 'PROSES_INIT';
+        delete qrCodes[userId];
+        delete pairingCodes[userId];
 
         const { state, saveCreds } = await getAuthState(userId);
         const { version } = await fetchLatestBaileysVersion();
 
-        console.log(`⚡ [User #${userId}] Inisialisasi WA Socket (v${version.join('.')})...`);
+        console.log(`⚡ [User #${userId}] Inisialisasi WA Socket (Baileys v${version.join('.')})...`);
 
         const sock = makeWASocket({
             logger: pino({ level: 'silent' }),
             auth: state,
             printQRInTerminal: false,
-            browser: Browsers.ubuntu('Chrome'),
+            browser: ["Ubuntu", "Chrome", "120.0.0.0"],
             connectTimeoutMs: 60000,
             defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 30000,
+            keepAliveIntervalMs: 25000,
+            qrTimeout: 45000,
             syncFullHistory: false
         });
 
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
 
+        // MINTA KODE PAIRING (JIKA DIPANGGUL DENGAN NOMOR HP)[cite: 4]
         if (phoneNumber && !sock.authState.creds.registered) {
-            let cleanPhone = phoneNumber.toString().replace(/[^0-9]/g, '');
-            if (cleanPhone.startsWith('0')) {
-                cleanPhone = '62' + cleanPhone.slice(1);
-            } else if (cleanPhone.startsWith('8')) {
-                cleanPhone = '62' + cleanPhone;
-            }
-
             setTimeout(async () => {
                 try {
-                    console.log(`📱 Meminta Kode Tautan WA untuk nomor: ${cleanPhone}`);
+                    let cleanPhone = phoneNumber.toString().replace(/[^0-9]/g, '');
+                    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.slice(1);
+                    
+                    console.log(`📱 Meminta Pairing Code WA untuk nomor: ${cleanPhone}`);
                     const code = await sock.requestPairingCode(cleanPhone);
-                    
-                    const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
-                    
-                    pairingCodes[userId] = formattedCode;
+                    pairingCodes[userId] = code;
                     waStatus[userId] = 'MENUNGGU_PAIRING_CODE';
-                    console.log(`🔑 [User #${userId}] Kode Tautan WA: ${formattedCode}`);
+                    console.log(`🔑 [User #${userId}] Pairing Code WA Terbit: ${code}`);
                 } catch (pErr) {
-                    console.error("❌ Gagal Minta Pairing Code:", pErr.message);
+                    console.error("Gagal Request Pairing Code:", pErr.message);
                     waStatus[userId] = 'ERROR_PAIRING';
                 }
-            }, 3000);
+            }, 5000);
         }
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
+            // QR CODE GENERATION (DENGAN DEBOUNCE TERKONTROL)[cite: 4]
             if (qr && !phoneNumber && !sock.authState.creds.registered) {
                 try {
                     qrCodes[userId] = await generateQRDataURL(qr);
@@ -174,6 +166,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
+                // Hanya hapus sesi jika di-logout resmi dari HP (401)[cite: 4]
                 const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
                 console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
@@ -181,11 +174,13 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                 delete waSessions[userId];
 
                 if (!isLoggedOut) {
+                    // Beri jeda 8 detik agar tidak looping kedap-kedip[cite: 4]
+                    console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
                     if (!reconnectTimers[userId]) {
                         reconnectTimers[userId] = setTimeout(() => {
                             delete reconnectTimers[userId];
                             connectToWhatsApp(userId);
-                        }, 5000);
+                        }, 8000);
                     }
                 } else {
                     console.log(`🚪 User #${userId} Logged Out. Menghapus folder sesi lokal...`);
@@ -204,7 +199,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
     }
 }
 
-// ----------------- ROUTES HALAMAN ----------------- //
+// ---------------- ROUTES HALAMAN ---------------- //
 
 app.get('/', async (req, res) => {
     const namaSekolah = await getPengaturan('NAMA_SEKOLAH', 'SD NEGERI PRESENSI DIGITAL');
@@ -241,23 +236,13 @@ app.get('/admin', async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId || 1;
     const namaSekolah = await getPengaturan('NAMA_SEKOLAH', 'SD NEGERI PRESENSI DIGITAL');
     const alamatSekolah = await getPengaturan('ALAMAT_SEKOLAH', 'Jl. Pendidikan No. 1');
-    const modePengirimWA = await getPengaturan('MODE_PENGIRIM_WA', 'ADMIN');
-    const izinkanGuruPilihWA = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
+    const modePengirimWA = await getPengaturan('MODE_PENGIRIM_WA', 'SENDIRI');
 
     try {
-        let usersRes;
-        try {
-            usersRes = await pool.query(`
-                SELECT u.id, u.nama, u.username, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
-                FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
-            `);
-        } catch (e) {
-            usersRes = await pool.query(`
-                SELECT u.id, u.nama, u.username, u.role, u.kelas_id, 'SENDIRI' AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
-                FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
-            `);
-        }
-
+        const usersRes = await pool.query(`
+            SELECT u.id, u.nama, u.username, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
+            FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
+        `);
         const siswaRes = await pool.query(`
             SELECT s.id, s.nama, s.nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id ORDER BY s.id ASC
@@ -311,8 +296,7 @@ app.get('/admin', async (req, res) => {
             userId: userId,
             namaSekolah,
             alamatSekolah,
-            modePengirimWA,
-            izinkanGuruPilihWA
+            modePengirimWA
         });
     } catch (err) {
         res.status(500).send("Kesalahan Database: " + err.message);
@@ -342,26 +326,14 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId;
     if (!userId) return res.redirect('/');
     const namaSekolah = await getPengaturan('NAMA_SEKOLAH', 'SD NEGERI PRESENSI DIGITAL');
-    const izinkanGuruPilihWA = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
-    const modePengirimWAAdmin = await getPengaturan('MODE_PENGIRIM_WA', 'ADMIN');
 
     try {
-        let userRes;
-        try {
-            userRes = await pool.query(`
-                SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
-                FROM users u
-                LEFT JOIN kelas k ON u.kelas_id = k.id
-                WHERE u.id = $1
-            `, [userId]);
-        } catch (e) {
-            userRes = await pool.query(`
-                SELECT u.id, u.nama, u.role, u.kelas_id, 'SENDIRI' AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
-                FROM users u
-                LEFT JOIN kelas k ON u.kelas_id = k.id
-                WHERE u.id = $1
-            `, [userId]);
-        }
+        const userRes = await pool.query(`
+            SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+            FROM users u
+            LEFT JOIN kelas k ON u.kelas_id = k.id
+            WHERE u.id = $1
+        `, [userId]);
 
         if (userRes.rows.length === 0) return res.redirect('/');
         
@@ -437,9 +409,7 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
             userId: userId,
             statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
             qrCodeWA: qrCodes[userId] || null,
-            namaSekolah,
-            izinkanGuruPilihWA,
-            modePengirimWAAdmin
+            namaSekolah
         });
     } catch (err) {
         console.error("Dashboard Error User #" + userId + ":", err);
@@ -453,10 +423,10 @@ app.get(['/scan', '/scanner'], async (req, res) => {
     res.render('scan', { userId: userId, namaSekolah });
 });
 
-// ---------------- API PENGATURAN GLOBAL ---------------- //
+// ---------------- API KELOLA PROFIL SEKOLAH & PENGATURAN (KHUSUS ADMIN) ---------------- //
 
 app.post('/api/admin/pengaturan/update', async (req, res) => {
-    const { nama_sekolah, alamat_sekolah, mode_pengirim_wa, izinkan_guru_pilih_wa } = req.body;
+    const { nama_sekolah, alamat_sekolah, mode_pengirim_wa } = req.body;
     const userId = req.session.userId || 1;
 
     try {
@@ -471,26 +441,10 @@ app.post('/api/admin/pengaturan/update', async (req, res) => {
         if (mode_pengirim_wa) {
             await pool.query(`INSERT INTO pengaturan (kunci, nilai) VALUES ('MODE_PENGIRIM_WA', $1) ON CONFLICT (kunci) DO UPDATE SET nilai = EXCLUDED.nilai`, [mode_pengirim_wa.trim()]);
         }
-        
-        await pool.query(`INSERT INTO pengaturan (kunci, nilai) VALUES ('IZINKAN_GURU_PILIH_WA', $1) ON CONFLICT (kunci) DO UPDATE SET nilai = EXCLUDED.nilai`, [izinkan_guru_pilih_wa ? 'YA' : 'TIDAK']);
 
         return res.redirect(`/admin?userId=${userId}`);
     } catch (err) {
-        return res.status(500).send("Gagal memperbarui pengaturan: " + err.message);
-    }
-});
-
-app.post('/api/wa-mode/update', async (req, res) => {
-    const { mode_pengirim_wa } = req.body;
-    const userId = req.session.userId || parseInt(req.query.userId) || 1;
-
-    try {
-        await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mode_pengirim_wa VARCHAR(20) DEFAULT 'SENDIRI'`);
-        await pool.query(`UPDATE users SET mode_pengirim_wa = $1 WHERE id = $2`, [mode_pengirim_wa || 'SENDIRI', userId]);
-        const backUrl = req.headers.referer || `/wali?userId=${userId}`;
-        return res.redirect(backUrl);
-    } catch (err) {
-        return res.status(500).send("Gagal memperbarui mode pengirim WA: " + err.message);
+        return res.status(500).send("Gagal memperbarui pengaturan sekolah: " + err.message);
     }
 });
 
@@ -720,7 +674,7 @@ app.post('/api/siswa/import-excel', upload.single('file_excel'), async (req, res
     }
 });
 
-// ---------------- API WA GATEWAY & SCAN PRESENSI ---------------- //
+// ---------------- API WA GATEWAY & SCAN PRESENSI HADIR/PULANG ---------------- //
 
 app.get('/api/start-wa', async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId || 1;
@@ -736,15 +690,8 @@ app.get('/api/request-pairing', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Nomor WhatsApp wajib diisi!' });
     }
 
-    delete pairingCodes[userId];
-    delete qrCodes[userId];
-
     connectToWhatsApp(userId, phone);
-
-    res.json({ 
-        success: true, 
-        message: 'Mempersiapkan kode tautan. Kode akan muncul dalam 2-3 detik di dasbor!' 
-    });
+    res.json({ success: true, message: 'Mempersiapkan kode tautan...' });
 });
 
 app.get('/api/wa-status', (req, res) => {
@@ -816,21 +763,11 @@ app.post('/api/scan', async (req, res) => {
             );
         }
 
-        const modeAdminGlobal = await getPengaturan('MODE_PENGIRIM_WA', 'ADMIN');
-        const izinkanGuruPilih = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
-
-        let modeFinalPengirim = modeAdminGlobal;
-
-        if (izinkanGuruPilih === 'YA') {
-            try {
-                const gRes = await pool.query(`SELECT COALESCE(mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa FROM users WHERE id = $1`, [parsedScannedBy]);
-                if (gRes.rows.length > 0) modeFinalPengirim = gRes.rows[0].mode_pengirim_wa;
-            } catch (e) {}
-        }
-
+        // PENENTUAN MODE PENGIRIM WA DARI SETELAN ADMIN
+        const modePengirimGlobal = await getPengaturan('MODE_PENGIRIM_WA', 'SENDIRI');
         let waClient = null;
 
-        if (modeFinalPengirim === 'ADMIN') {
+        if (modePengirimGlobal === 'ADMIN') {
             const adminRes = await pool.query(`SELECT id FROM users WHERE role = 'ADMIN' ORDER BY id ASC LIMIT 1`);
             const adminId = adminRes.rows.length > 0 ? adminRes.rows[0].id : 1;
             waClient = waSessions[adminId];
@@ -851,7 +788,7 @@ app.post('/api/scan', async (req, res) => {
             const formattedJid = phone + '@s.whatsapp.net';
 
             const teksHeader = tipeAbsen === 'PULANG' ? 'PRESENSI KEPULANGAN SISWA' : 'PRESENSI KEHADIRAN SISWA';
-            const teksAktivitas = tipeAbsen === 'PULANG' ? 'telah selesai mengikuti KBM di sekolah dan melakukan presensi kepulangan untuk pulang ke rumah' : 'telah tiba di sekolah dan melakukan presensi kedatangan';
+            const teksAktivitas = tipeAbsen === 'PULANG' ? 'telah selesai mengikuti KBM dan presensi kepulangan untuk pulang ke rumah' : 'telah tiba di sekolah dan melakukan presensi kedatangan';
 
             const pesan = `*${namaSekolahResmi.toUpperCase()}*\n` +
                           `*PEMBERITAHUAN ${teksHeader}*\n` +
@@ -906,7 +843,7 @@ app.post('/api/absensi/reset-riwayat', async (req, res) => {
     }
 });
 
-// ---------------- FITUR REKAP BULANAN & HARIAN ---------------- //
+// ---------------- FITUR REKAP BULANAN & HARIAN DIBERESKAN DENGAN RAPIH ---------------- //
 
 app.get('/api/absensi/preview', async (req, res) => {
     const { bulan, tahun, kelas_id } = req.query;
@@ -1095,6 +1032,7 @@ app.get('/api/absensi/export', async (req, res) => {
     }
 });
 
+// PING ENDPOINT UNTUK UPTIMEROBOT[cite: 4]
 app.get('/ping', (req, res) => res.send('OK'));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server Presensi Aktif di Port ${PORT}`));
