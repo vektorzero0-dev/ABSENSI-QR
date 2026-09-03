@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemindai Presensi Kartu Siswa - UPTD SD NEGERI 1 KARYA MULYA SARI</title>
+    <title>Pemindai Presensi Kartu Siswa - <%= namaSekolah %></title>
     
-    <!-- 🟢 DUKUNGAN PWA (PROGRESSIVE WEB APP) -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0284c7">
     <meta name="mobile-web-app-capable" content="yes">
@@ -15,8 +14,48 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        .bg-light-animated {
+            background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            background-image: 
+                radial-gradient(rgba(15, 23, 42, 0.05) 1.2px, transparent 1.2px),
+                linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #e2e8f0);
+            background-size: 20px 20px, 400% 400%;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .card-pro {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.25rem;
+            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-pro::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: radial-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+            background-size: 14px 14px;
+            pointer-events: none;
+        }
+    </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
+<body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
 
     <!-- Header Pemindai -->
     <header class="bg-blue-900 text-white shadow-md border-b-4 border-emerald-500">
@@ -27,7 +66,7 @@
                 </div>
                 <div>
                     <h1 class="text-sm font-bold uppercase tracking-wide">Pemindai Presensi Siswa</h1>
-                    <p class="text-[11px] text-blue-200">UPTD SD Negeri 1 Karya Mulya Sari</p>
+                    <p class="text-[11px] text-blue-200 truncate max-w-[200px] sm:max-w-none"><%= namaSekolah %></p>
                 </div>
             </div>
             <a href="javascript:history.back()" class="bg-blue-950 hover:bg-blue-800 text-blue-100 text-xs px-3 py-2 rounded-xl border border-blue-700 transition flex items-center gap-1.5">
@@ -39,25 +78,24 @@
     <main class="max-w-xl mx-auto w-full p-4 flex-1">
 
         <!-- Area Kamera Scanner -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-md mb-4 text-center">
-            <div class="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-300 mb-3 min-h-[250px] flex items-center justify-center">
+        <div class="card-pro p-4 mb-4 text-center">
+            <div class="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-300 mb-3 min-h-[250px] flex items-center justify-center relative z-10">
                 <div id="reader" class="w-full"></div>
             </div>
 
-            <!-- Pilihan Switch Kamera jika Perangkat Memiliki Lebih dari 1 Kamera -->
-            <div id="cameraSelectContainer" class="hidden mb-3">
+            <div id="cameraSelectContainer" class="hidden mb-3 relative z-10">
                 <select id="cameraSelect" onchange="gantiKamera(this.value)" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl p-2 focus:ring-2 focus:ring-emerald-600 focus:outline-none">
                 </select>
             </div>
 
-            <p id="cameraStatusText" class="text-xs text-slate-600 flex items-center justify-center gap-1.5 font-medium">
+            <p id="cameraStatusText" class="text-xs text-slate-600 flex items-center justify-center gap-1.5 font-medium relative z-10">
                 <i class="fa-solid fa-camera text-blue-900"></i> Memuat kamera... Memohon izin akses.
             </p>
         </div>
 
         <!-- Kartu Hasil Sukses -->
-        <div id="resultCard" class="hidden bg-white border border-emerald-500/40 rounded-2xl p-5 shadow-lg transition-all duration-300">
-            <div class="flex items-start justify-between border-b border-slate-100 pb-3 mb-3">
+        <div id="resultCard" class="hidden card-pro border-emerald-500/60 p-5 shadow-lg transition-all duration-300">
+            <div class="flex items-start justify-between border-b border-slate-100 pb-3 mb-3 relative z-10">
                 <div class="flex items-center gap-3">
                     <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-emerald-600">
                         <i class="fa-solid fa-circle-check text-2xl"></i>
@@ -70,7 +108,7 @@
                 <span id="resWaktu" class="text-xs font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">-</span>
             </div>
             
-            <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+            <div class="grid grid-cols-2 gap-2 text-xs mb-3 relative z-10">
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                     <span class="text-[10px] text-slate-500 block font-medium">Rombongan Belajar</span>
                     <strong id="resKelas" class="text-slate-800">-</strong>
@@ -81,15 +119,15 @@
                 </div>
             </div>
 
-            <div id="resWAStatus" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs p-2.5 rounded-xl flex items-center gap-2">
+            <div id="resWAStatus" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs p-2.5 rounded-xl flex items-center gap-2 relative z-10">
                 <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
                 <span id="resWAMsg">-</span>
             </div>
         </div>
 
         <!-- Kartu Error -->
-        <div id="errorCard" class="hidden bg-white border border-rose-300 rounded-2xl p-4 shadow-md mt-4">
-            <div class="flex items-center gap-3">
+        <div id="errorCard" class="hidden card-pro border-rose-300 p-4 shadow-md mt-4">
+            <div class="flex items-center gap-3 relative z-10">
                 <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-rose-600">
                     <i class="fa-solid fa-triangle-exclamation text-xl"></i>
                 </div>
@@ -168,7 +206,6 @@
             });
         }
 
-        // Inisialisasi Pembukaan Kamera Otomatis
         document.addEventListener("DOMContentLoaded", () => {
             const cameraStatus = document.getElementById('cameraStatusText');
             const cameraSelectContainer = document.getElementById('cameraSelectContainer');
@@ -178,7 +215,6 @@
                 if (devices && devices.length > 0) {
                     let selectedCameraId = devices[0].id;
 
-                    // Isi Pilihan Opsi Kamera
                     if (devices.length > 1) {
                         cameraSelect.innerHTML = '';
                         devices.forEach((dev, idx) => {
@@ -190,7 +226,6 @@
                         cameraSelectContainer.classList.remove('hidden');
                     }
 
-                    // Otomatis cari kamera belakang
                     const backCam = devices.find(d => 
                         d.label.toLowerCase().includes('back') || 
                         d.label.toLowerCase().includes('belakang') ||
@@ -224,7 +259,7 @@
     </script>
 
     <footer class="bg-white border-t border-slate-200 py-3 text-center text-[11px] text-slate-600">
-        <p>© UPTD SD Negeri 1 Karya Mulya Sari. Seluruh Hak Cipta Dilindungi.</p>
+        <p>© <%= namaSekolah %>. Seluruh Hak Cipta Dilindungi.</p>
         <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-600">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-blue-700 font-medium hover:underline">0823-7172-9760</a></p>
     </footer>
 
