@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administrator - UPTD SD NEGERI 1 KARYA MULYA SARI</title>
+    <title>Panel Administrator - <%= namaSekolah %></title>
     
     <!-- CSS Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -21,13 +21,13 @@
         .offcanvas { z-index: 1055 !important; }
         .offcanvas-backdrop { z-index: 1050 !important; }
 
-        /* LATAR BELAKANG TERANG BERANIMASI DENGAN PATTERN */
+        /* LATAR BELAKANG TERANG BERANIMASI DENGAN PATTERN GEOMETRIS */
         .bg-light-animated {
             background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
             background-image: 
-                radial-gradient(rgba(15, 23, 42, 0.05) 1.2px, transparent 1.2px),
+                radial-gradient(rgba(15, 23, 42, 0.06) 1.2px, transparent 1.2px),
                 linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #e2e8f0);
             background-size: 20px 20px, 400% 400%;
         }
@@ -54,6 +54,7 @@
             position: relative;
             overflow: hidden;
             border-radius: 1.25rem;
+            backdrop-filter: blur(12px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -73,19 +74,19 @@
         }
 
         .card-amber-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(254, 243, 199, 0.7) 100%);
             border: 1px solid #fde68a;
         }
         .card-emerald-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(209, 250, 229, 0.7) 100%);
             border: 1px solid #a7f3d0;
         }
         .card-blue-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(224, 242, 254, 0.7) 100%);
             border: 1px solid #bfdbfe;
         }
         .card-purple-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.7) 100%);
             border: 1px solid #e9d5ff;
         }
 
@@ -109,7 +110,7 @@
     </button>
     
     <span class="font-bold text-xs sm:text-sm tracking-wide text-amber-400 uppercase truncate">
-      UPTD SD NEGERI 1 KARYA MULYA SARI
+      <%= namaSekolah %>
     </span>
   </div>
 
@@ -139,6 +140,9 @@
       </a>
       <a href="/admin/cetak-kartu" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-address-card text-purple-600"></i> Cetak Kartu Siswa
+      </a>
+      <a href="#section-sekolah" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
+        <i class="fa-solid fa-school-flag text-amber-600"></i> Nama Sekolah
       </a>
       <a href="#section-dapodik" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-file-excel text-emerald-600"></i> Impor Excel Dapodik
@@ -175,7 +179,7 @@
                     <i class="fa-solid fa-graduation-cap text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-sm md:text-base font-extrabold tracking-wide uppercase text-slate-100">UPTD SD NEGERI 1 KARYA MULYA SARI</h1>
+                    <h1 class="text-sm md:text-base font-extrabold tracking-wide uppercase text-slate-100"><%= namaSekolah %></h1>
                     <p class="text-[11px] text-blue-200">Panel Kelola Administrator Sistem Presensi</p>
                 </div>
             </div>
@@ -192,7 +196,7 @@
 
     <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 animate-fade-in">
 
-        <!-- KOTAK BANNER PROFIL (AMBER THEME) -->
+        <!-- KOTAK BANNER PROFIL -->
         <div class="card-pro card-amber-theme p-4 mb-6 flex items-center justify-between">
             <div class="flex items-center gap-3 relative z-10">
                 <div class="bg-amber-600 text-white p-3 rounded-xl shadow-md">
@@ -205,7 +209,7 @@
             </div>
         </div>
 
-        <!-- METRIC SUMMARY CARDS WITH INDIVIDUAL COLOR THEMES -->
+        <!-- METRIC SUMMARY CARDS -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div class="card-pro card-blue-theme p-4 flex items-center justify-between">
                 <div class="relative z-10">
@@ -238,7 +242,27 @@
             </div>
         </div>
 
-        <!-- KOTAK IMPOR DAPODIK (EMERALD THEME) -->
+        <!-- FITUR TERBARU: KOTAK UBAH NAMA SEKOLAH -->
+        <div id="section-sekolah" class="card-pro card-amber-theme p-5 mb-6">
+            <div class="flex items-center gap-3 mb-3 border-b border-amber-200/60 pb-2 relative z-10">
+                <div class="bg-amber-600 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-school-flag text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Pengaturan Identitas Sekolah</h3>
+                    <p class="text-[11px] text-slate-600">Ubah nama resmi instansi sekolah untuk ditampilkan pada kop kartu, laporan, dan notifikasi WA.</p>
+                </div>
+            </div>
+
+            <form action="/api/sekolah/update" method="POST" class="flex flex-col sm:flex-row items-center gap-3 relative z-10">
+                <input type="text" name="nama_sekolah" required value="<%= namaSekolah %>" placeholder="Masukkan Nama Resmi Sekolah" class="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600 w-full">
+                <button type="submit" class="btn-interactive w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-amber-700 shadow-md">
+                    <i class="fa-solid fa-floppy-disk"></i> Simpan Nama Sekolah
+                </button>
+            </form>
+        </div>
+
+        <!-- KOTAK IMPOR DAPODIK -->
         <div id="section-dapodik" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex items-center gap-3 mb-3 border-b border-emerald-200/60 pb-2 relative z-10">
                 <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
@@ -252,7 +276,6 @@
 
             <form id="formImportExcel" onsubmit="prosesImportExcel(event)" class="flex flex-col sm:flex-row items-center gap-3 relative z-10">
                 <input type="file" id="fileExcelInput" accept=".xlsx, .xls, .csv" required class="flex-1 text-xs text-slate-700 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200 border border-emerald-300 rounded-xl p-1 w-full bg-white">
-                
                 <button type="submit" id="btnImportExcel" class="btn-interactive w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-emerald-800 whitespace-nowrap shadow-md">
                     <i class="fa-solid fa-cloud-arrow-up"></i> Upload & Impor Data
                 </button>
@@ -262,7 +285,7 @@
         <!-- KOTAK FORM TAMBAH ROMBEL & GURU -->
         <div id="section-rombel" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             
-            <!-- FORM ROMBEL (PURPLE THEME) -->
+            <!-- FORM ROMBEL -->
             <div class="card-pro card-purple-theme p-5">
                 <div class="flex justify-between items-center border-b border-purple-200/60 pb-2 mb-4 relative z-10">
                     <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -301,20 +324,26 @@
                 </div>
             </div>
 
-            <!-- FORM GURU (BLUE THEME) -->
+            <!-- FORM GURU & AKUN ADMIN BARU -->
             <div class="card-pro card-blue-theme p-5">
                 <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
-                    <i class="fa-solid fa-user-plus text-blue-700"></i> Registrasi Akun Wali Kelas / Guru
+                    <i class="fa-solid fa-user-plus text-blue-700"></i> Registrasi Akun Pengguna / Guru / Admin
                 </h3>
-                <form action="/api/guru/tambah" method="POST" class="space-y-3 relative z-10">
+                <form action="/api/admin/tambah" method="POST" class="space-y-3 relative z-10">
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="text" name="nama" required placeholder="Nama Lengkap Tenaga Pendidik" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <input type="text" name="username" required placeholder="Nama Pengguna (Username)" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                        <input type="text" name="nama" required placeholder="Nama Lengkap Personel" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                        <input type="text" name="username" required placeholder="Username" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="password" name="password" required placeholder="Kata Sandi" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <select name="kelas_id" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                            <option value="">-- Penugasan Rombel --</option>
+                        <select name="role" required class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                            <option value="WALI_KELAS">Wali Kelas / Guru</option>
+                            <option value="ADMIN">Administrator</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select name="kelas_id" class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                            <option value="">-- Penugasan Rombel (Khusus Wali Kelas) --</option>
                             <% kelas.forEach(k => { %>
                                 <option value="<%= k.id %>"><%= k.nama_kelas %></option>
                             <% }); %>
@@ -327,7 +356,7 @@
             </div>
         </div>
 
-        <!-- KOTAK REGISTRASI SISWA MANUAL (AMBER THEME) -->
+        <!-- KOTAK REGISTRASI SISWA MANUAL -->
         <div class="card-pro card-amber-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-amber-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-address-card text-amber-700"></i> Registrasi Peserta Didik Baru (Manual)
@@ -347,7 +376,7 @@
             </form>
         </div>
 
-        <!-- KOTAK TABEL DIREKTORI GURU (BLUE THEME) -->
+        <!-- KOTAK TABEL DIREKTORI GURU -->
         <div class="card-pro card-blue-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-users-gear text-blue-700"></i> Direktori Akun Tenaga Pendidik
@@ -404,7 +433,7 @@
             </div>
         </div>
 
-        <!-- KOTAK TABEL DIREKTORI SISWA & QR CODE (EMERALD THEME) -->
+        <!-- KOTAK TABEL DIREKTORI SISWA -->
         <div id="section-siswa" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-emerald-200/60 pb-3 relative z-10">
                 <div>
@@ -494,7 +523,7 @@
             </div>
         </div>
 
-        <!-- KOTAK TABEL REKAP PRESENSI HARI INI (PURPLE THEME) -->
+        <!-- KOTAK TABEL REKAP PRESENSI HARI INI -->
         <div id="section-presensi" class="card-pro card-purple-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-purple-200/60 pb-3 relative z-10">
                 <div>
@@ -547,7 +576,7 @@
 
     </main>
 
-    <!-- FORM TERSEMBUNYI UNTUK PROCESS HAPUS -->
+    <!-- FORM TERSEMBUNYI HAPUS -->
     <form id="formHapusUmum" action="" method="POST" class="hidden"></form>
 
     <!-- MODAL EDIT DATA GURU -->
@@ -647,7 +676,7 @@
         </div>
     </div>
 
-    <!-- SCRIPT JAVASCRIPT BOOTSTRAP -->
+    <!-- SCRIPT JAVASCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -683,7 +712,6 @@
             });
         }
 
-        // AKUN GURU MODAL & HAPUS
         function bukaModalEditGuru(btn) {
             const id = btn.getAttribute('data-id');
             const nama = decodeURIComponent(btn.getAttribute('data-nama'));
@@ -713,7 +741,6 @@
             }
         }
 
-        // SISWA MODAL & HAPUS
         function bukaModalEditSiswa(btn) {
             const id = btn.getAttribute('data-id');
             const nama = decodeURIComponent(btn.getAttribute('data-nama'));
@@ -754,7 +781,7 @@
     </script>
 
     <footer class="bg-slate-900 text-white border-t border-slate-800 py-3 text-center text-[11px]">
-        <p>© UPTD SD Negeri 1 Karya Mulya Sari. Seluruh Hak Cipta Dilindungi.</p>
+        <p>© <%= namaSekolah %>. Seluruh Hak Cipta Dilindungi.</p>
         <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-200">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-amber-400 font-medium hover:underline">0823-7172-9760</a></p>
     </footer>
 </body>
