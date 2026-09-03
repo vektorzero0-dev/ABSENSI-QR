@@ -41,9 +41,8 @@ const waSessions = {};
 const qrCodes = {};
 const waStatus = {};
 const pairingCodes = {};
-const reconnectTimers = {}; // Mencegah looping restart berulang[cite: 4]
+const reconnectTimers = {};
 
-// Helper Fungsi Dapatkan Pengaturan Dinamis Safe (Anti-Crash)
 async function getPengaturan(kunci, defaultValue = '') {
     try {
         const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = $1", [kunci]);
@@ -57,7 +56,6 @@ function bersihkanGelar(nama) {
     return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
 }
 
-// System QR Safe Generator
 async function generateQRDataURL(text) {
     try {
         if (!text) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
@@ -235,10 +233,19 @@ app.get('/admin', async (req, res) => {
     const izinkanGuruPilihWA = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
 
     try {
-        const usersRes = await pool.query(`
-            SELECT u.id, u.nama, u.username, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
-            FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
-        `);
+        let usersRes;
+        try {
+            usersRes = await pool.query(`
+                SELECT u.id, u.nama, u.username, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
+                FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
+            `);
+        } catch (e) {
+            usersRes = await pool.query(`
+                SELECT u.id, u.nama, u.username, u.role, u.kelas_id, 'SENDIRI' AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
+                FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
+            `);
+        }
+
         const siswaRes = await pool.query(`
             SELECT s.id, s.nama, s.nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id ORDER BY s.id ASC
@@ -434,7 +441,7 @@ app.get(['/scan', '/scanner'], async (req, res) => {
     res.render('scan', { userId: userId, namaSekolah });
 });
 
-// ---------------- API KELOLA PENGATURAN GLOBAL DARI ADMIN ---------------- //
+// ---------------- API KELOLA PENGATURAN GLOBAL ---------------- //
 
 app.post('/api/admin/pengaturan/update', async (req, res) => {
     const { nama_sekolah, alamat_sekolah, mode_pengirim_wa, izinkan_guru_pilih_wa } = req.body;
@@ -461,12 +468,12 @@ app.post('/api/admin/pengaturan/update', async (req, res) => {
     }
 });
 
-// API PILIHAN INDIVIDU GURU (JIKA DIIZINKAN ADMIN)
 app.post('/api/wa-mode/update', async (req, res) => {
     const { mode_pengirim_wa } = req.body;
     const userId = req.session.userId || parseInt(req.query.userId) || 1;
 
     try {
+        await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mode_pengirim_wa VARCHAR(20) DEFAULT 'SENDIRI'`);
         await pool.query(`UPDATE users SET mode_pengirim_wa = $1 WHERE id = $2`, [mode_pengirim_wa || 'SENDIRI', userId]);
         const backUrl = req.headers.referer || `/wali?userId=${userId}`;
         return res.redirect(backUrl);
@@ -752,7 +759,6 @@ app.get('/api/reset-wa', async (req, res) => {
     res.json({ success: true, message: 'Sesi WA Berhasil Direset!' });
 });
 
-// LOGIKA PRESENSI DENGAN KONTROL PENUH ADMIN TERHADAP PENGIRIM WA
 app.post('/api/scan', async (req, res) => {
     const { siswa_id, scanned_by, jenis_absen } = req.body;
     if (!siswa_id) return res.status(400).json({ success: false, message: "Kode QR tidak terdeteksi." });
@@ -791,7 +797,6 @@ app.post('/api/scan', async (req, res) => {
             );
         }
 
-        // --- HIERARKI PENENTUAN PENGIRIM WA (KONTROL ADMIN) ---
         const modeAdminGlobal = await getPengaturan('MODE_PENGIRIM_WA', 'ADMIN');
         const izinkanGuruPilih = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
 
@@ -1071,7 +1076,6 @@ app.get('/api/absensi/export', async (req, res) => {
     }
 });
 
-// PING ENDPOINT UNTUK UPTIMEROBOT[cite: 4]
 app.get('/ping', (req, res) => res.send('OK'));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server Presensi Aktif di Port ${PORT}`));
