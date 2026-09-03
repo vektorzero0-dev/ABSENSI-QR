@@ -43,8 +43,7 @@
             position: relative;
             overflow: hidden;
             border-radius: 1.25rem;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -63,19 +62,19 @@
         }
 
         .card-blue-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(224, 242, 254, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
             border: 1px solid #bfdbfe;
         }
         .card-emerald-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(209, 250, 229, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
             border: 1px solid #a7f3d0;
         }
         .card-amber-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(254, 243, 199, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
             border: 1px solid #fde68a;
         }
         .card-purple-theme {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.7) 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
             border: 1px solid #e9d5ff;
         }
 
@@ -91,7 +90,6 @@
 </head>
 <body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
 
-<!-- NAVBAR HEADER ATAS -->
 <nav class="bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-md px-4 py-3 flex items-center justify-between border-b border-emerald-500/50">
   <div class="flex items-center gap-3">
     <button type="button" onclick="bukaSidebar()" class="btn-interactive bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl border border-emerald-500 font-bold text-xs flex items-center gap-2 transition shadow-sm">
@@ -108,7 +106,6 @@
   </div>
 </nav>
 
-<!-- SIDEBAR SLIDE WALI KELAS -->
 <div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 -translate-x-full flex flex-col justify-between border-r border-slate-200">
   <div>
     <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
@@ -151,7 +148,6 @@
 
 <div id="sidebarOverlay" onclick="tutupSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden transition-opacity backdrop-blur-xs"></div>
 
-    <!-- HEADER RESMI SEKOLAH BERANIMASI -->
     <header class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-lg border-b-4 border-emerald-500 relative overflow-hidden">
         
         <div class="absolute -top-12 left-1/3 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl animate-glow pointer-events-none"></div>
@@ -180,7 +176,6 @@
 
     <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 animate-fade-in">
 
-        <!-- KOTAK BANNER PROFIL -->
         <div class="card-pro card-blue-theme p-4 mb-6 flex items-center justify-between">
             <div class="flex items-center gap-3 relative z-10">
                 <div class="bg-blue-600 text-white p-3 rounded-xl shadow-md">
@@ -195,7 +190,6 @@
             </div>
         </div>
 
-        <!-- KOTAK WA GATEWAY -->
         <div id="section-wa-gateway" class="card-pro card-emerald-theme p-5 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3 relative z-10">
                 <div class="p-3 rounded-xl bg-emerald-600 text-white shadow-md">
@@ -237,7 +231,25 @@
             </div>
         </div>
 
-        <!-- KOTAK REKAP BULANAN -->
+        <!-- OPSI PENGIRIM WA INDIVIDU DARI IZIN ADMIN -->
+        <% if (izinkanGuruPilihWA === 'YA') { %>
+            <div class="card-pro card-purple-theme p-4 mb-6">
+                <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-purple-700"></i> Opsi Pengirim Notifikasi WhatsApp
+                </h4>
+                <p class="text-xs text-slate-600 mb-3">Admin telah mengizinkan Anda memilih perangkat pengirim pesan otomatis saat scan.</p>
+                <form action="/api/wa-mode/update" method="POST" class="flex flex-col sm:flex-row items-center gap-3">
+                    <select name="mode_pengirim_wa" class="bg-white border border-purple-300 text-slate-800 text-xs rounded-xl p-2.5 font-semibold focus:outline-none focus:ring-2 focus:ring-purple-600 w-full sm:w-auto">
+                        <option value="SENDIRI" <%= user.mode_pengirim_wa === 'SENDIRI' ? 'selected' : '' %>>📱 Gunakan Nomor WA Saya Sendiri</option>
+                        <option value="ADMIN" <%= user.mode_pengirim_wa === 'ADMIN' ? 'selected' : '' %>>🏫 Gunakan Nomor WA Admin Terpusat</option>
+                    </select>
+                    <button type="submit" class="btn-interactive bg-purple-800 hover:bg-purple-900 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition w-full sm:w-auto flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan Pilihan
+                    </button>
+                </form>
+            </div>
+        <% } %>
+
         <div id="section-rekap-bulanan" class="card-pro card-purple-theme p-5 mb-6">
             <div class="flex items-center gap-3 mb-4 border-b border-purple-200/60 pb-2 relative z-10">
                 <div class="bg-purple-600 text-white p-2.5 rounded-xl shadow-md">
@@ -316,7 +328,8 @@
                                 <th class="p-2.5">No</th>
                                 <th class="p-2.5">Nama Siswa</th>
                                 <th class="p-2.5">Rombel</th>
-                                <th class="p-2.5 text-center">Total Kehadiran</th>
+                                <th class="p-2.5 text-center">Hadir Masuk</th>
+                                <th class="p-2.5 text-center">Hadir Pulang</th>
                             </tr>
                         </thead>
                         <tbody id="previewTableBody" class="divide-y divide-slate-100">
@@ -326,7 +339,6 @@
             </div>
         </div>
 
-        <!-- KOTAK FORM TAMBAH SISWA -->
         <div class="card-pro card-amber-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-amber-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-user-plus text-amber-700"></i> Registrasi Siswa Rombel (<%= user.nama_kelas %>)
@@ -359,15 +371,14 @@
             <% } %>
         </div>
 
-        <!-- KOTAK TABEL SISWA -->
         <div id="section-siswa-kelas" class="card-pro card-blue-theme p-5 mb-6">
             <div class="flex justify-between items-center mb-4 border-b border-blue-200/60 pb-3 relative z-10">
                 <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <i class="fa-solid fa-users text-blue-700"></i> Daftar Peserta Didik (<%= user.nama_kelas %>)
                 </h3>
-                <button type="button" onclick="window.print()" class="btn-interactive bg-white hover:bg-slate-50 text-slate-700 text-xs px-3.5 py-2 rounded-xl border border-blue-200 font-medium transition flex items-center gap-1.5 shadow-xs">
+                <a href="/admin/cetak-kartu" class="btn-interactive bg-white hover:bg-slate-50 text-slate-700 text-xs px-3.5 py-2 rounded-xl border border-blue-200 font-medium transition flex items-center gap-1.5 shadow-xs">
                     <i class="fa-solid fa-print"></i> Cetak Kartu Identitas
-                </button>
+                </a>
             </div>
 
             <div class="overflow-x-auto relative z-10">
@@ -435,7 +446,6 @@
 
         <form id="formHapusSiswa" action="" method="POST" class="hidden"></form>
 
-        <!-- KOTAK TABEL LOG ABSENSI -->
         <div id="section-absensi-today" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-emerald-200/60 pb-2 relative z-10">
                 <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -450,12 +460,13 @@
             </div>
 
             <div class="overflow-x-auto relative z-10">
-                <table class="w-full text-xs text-left text-slate-700 border-collapse min-w-[400px]">
+                <table class="w-full text-xs text-left text-slate-700 border-collapse min-w-[500px]">
                     <thead class="bg-emerald-100/70 text-slate-800 uppercase text-[10px] font-bold border-b border-emerald-200">
                         <tr>
                             <th class="p-3">Nama Siswa</th>
+                            <th class="p-3">Jenis Presensi</th>
                             <th class="p-3">Waktu Presensi</th>
-                            <th class="p-3">Status Kehadiran</th>
+                            <th class="p-3 text-center">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-emerald-100 bg-white/70">
@@ -463,8 +474,19 @@
                             <% absensiHariIni.forEach(a => { %>
                                 <tr class="hover:bg-emerald-50/50 transition-colors">
                                     <td class="p-3 font-semibold text-slate-900"><%= a.nama_siswa %></td>
-                                    <td class="p-3 font-mono text-slate-600"><%= a.waktu_formatted %></td>
                                     <td class="p-3">
+                                        <% if (a.jenis_absen === 'PULANG') { %>
+                                            <span class="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
+                                                🏠 PRESENSI PULANG
+                                            </span>
+                                        <% } else { %>
+                                            <span class="bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
+                                                🏫 PRESENSI DATANG
+                                            </span>
+                                        <% } %>
+                                    </td>
+                                    <td class="p-3 font-mono text-slate-600"><%= a.waktu_formatted %></td>
+                                    <td class="p-3 text-center">
                                         <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
                                             HADIR
                                         </span>
@@ -473,7 +495,7 @@
                             <% }); %>
                         <% } else { %>
                             <tr>
-                                <td colspan="3" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi masuk untuk hari ini.</td>
+                                <td colspan="4" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi masuk/pulang untuk hari ini.</td>
                             </tr>
                         <% } %>
                     </tbody>
@@ -483,7 +505,6 @@
 
     </main>
 
-    <!-- MODAL POP-UP EDIT DATA SISWA -->
     <div id="modalEditSiswa" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
@@ -520,7 +541,6 @@
         </div>
     </div>
 
-    <!-- SCRIPT JAVASCRIPT -->
     <script>
         function bukaSidebar() {
             document.getElementById('sidebarMenu').classList.remove('-translate-x-full');
@@ -651,7 +671,7 @@
             const tbody = document.getElementById('previewTableBody');
             const countTag = document.getElementById('previewCount');
 
-            tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500 italic"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Memuat data rekapitulasi...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500 italic"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Memuat data rekapitulasi...</td></tr>`;
             previewArea.classList.remove('hidden');
 
             fetch(`/api/absensi/preview?bulan=${bulan}&tahun=${tahun}&kelas_id=${kelasId}`)
@@ -664,17 +684,18 @@
                                 <td class="p-2.5 text-center font-mono">${index + 1}</td>
                                 <td class="p-2.5 font-semibold text-slate-900">${item.nama_siswa}</td>
                                 <td class="p-2.5 text-slate-600">${item.nama_kelas}</td>
-                                <td class="p-2.5 text-center font-bold text-emerald-700 bg-emerald-50/50">${item.total_hadir} Hari</td>
+                                <td class="p-2.5 text-center font-bold text-blue-800 bg-blue-50/50">${item.total_datang} Hari</td>
+                                <td class="p-2.5 text-center font-bold text-amber-800 bg-amber-50/50">${item.total_pulang} Hari</td>
                             </tr>
                         `).join('');
                     } else {
                         countTag.innerText = '0 Siswa';
-                        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic">Tidak ada data kehadiran pada bulan dan tahun yang dipilih.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">Tidak ada data kehadiran pada bulan dan tahun yang dipilih.</td></tr>`;
                     }
                 })
                 .catch(err => {
                     console.error("Preview error:", err);
-                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-500 font-medium">Gagal memuat pratinjau data.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500 font-medium">Gagal memuat pratinjau data.</td></tr>`;
                 });
         }
     </script>
