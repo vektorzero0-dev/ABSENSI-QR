@@ -41,7 +41,48 @@ const waSessions = {};
 const qrCodes = {};
 const waStatus = {};
 const pairingCodes = {};
-const reconnectTimers = {}; // Mencegah looping restart berulang
+const reconnectTimers = {};
+
+// ---------------- AUTOMATIC DATABASE MIGRATION (NEON POSTGRESQL) ---------------- //
+async function initDatabase() {
+    try {
+        console.log('🔄 Memeriksa dan memperbarui struktur database PostgreSQL...');
+        
+        // 1. Pastikan Tabel Pengaturan Ada
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pengaturan (
+                kunci VARCHAR(50) PRIMARY KEY,
+                nilai TEXT
+            )
+        `);
+
+        // 2. Tambahkan default nama_sekolah jika belum ada
+        await pool.query(`
+            INSERT INTO pengaturan (kunci, nilai) 
+            VALUES ('nama_sekolah', 'UPTD SD NEGERI 1 KARYA MULYA SARI') 
+            ON CONFLICT (kunci) DO NOTHING
+        `);
+
+        // 3. Tambahkan default mode_pengirim_wa jika belum ada
+        await pool.query(`
+            INSERT INTO pengaturan (kunci, nilai) 
+            VALUES ('mode_pengirim_wa', 'WALI_KELAS') 
+            ON CONFLICT (kunci) DO NOTHING
+        `);
+
+        // 4. Tambahkan kolom 'type' ke tabel absensi secara otomatis jika belum ada
+        await pool.query(`
+            ALTER TABLE absensi ADD COLUMN IF NOT EXISTS type VARCHAR(10) DEFAULT 'MASUK'
+        `);
+
+        console.log('✅ Struktur Database PostgreSQL Siap dan Up-to-date!');
+    } catch (err) {
+        console.error('❌ Gagal Inisialisasi/Migrasi Database:', err.message);
+    }
+}
+
+// Jalankan auto migration saat server dinyalakan
+initDatabase();
 
 function bersihkanGelar(nama) {
     if (!nama) return '';
@@ -77,7 +118,7 @@ async function getModePengirim() {
     } catch (err) {
         console.error("Gagal mengambil mode_pengirim_wa:", err.message);
     }
-    return "WALI_KELAS"; // Default: WALI_KELAS
+    return "WALI_KELAS";
 }
 
 // ----------------- HYBRID AUTH STATE (LOKAL AUTH FOLDER) ----------------- //
@@ -92,7 +133,6 @@ async function getAuthState(userId) {
 
 async function connectToWhatsApp(userId, phoneNumber = null) {
     try {
-        // Bersihkan timer pending jika ada request ulang
         if (reconnectTimers[userId]) {
             clearTimeout(reconnectTimers[userId]);
             delete reconnectTimers[userId];
@@ -127,7 +167,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
 
-        // MINTA KODE PAIRING (JIKA DIPANGGUL DENGAN NOMOR HP)
         if (phoneNumber && !sock.authState.creds.registered) {
             setTimeout(async () => {
                 try {
@@ -149,7 +188,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
-            // QR CODE GENERATION (DENGAN DEBOUNCE TERKONTROL)
             if (qr && !phoneNumber && !sock.authState.creds.registered) {
                 try {
                     qrCodes[userId] = await generateQRDataURL(qr);
@@ -178,7 +216,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                // Hanya hapus sesi jika di-logout resmi dari HP (401)
                 const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
                 console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
@@ -186,7 +223,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                 delete waSessions[userId];
 
                 if (!isLoggedOut) {
-                    // Beri jeda 8 detik agar tidak looping kedap-kedip
                     console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
                     if (!reconnectTimers[userId]) {
                         reconnectTimers[userId] = setTimeout(() => {
@@ -752,14 +788,11 @@ app.post('/api/scan', async (req, res) => {
         let waClient = null;
 
         if (modePengirim === 'TERPUSAT') {
-            // Mengutamakan nomor WA Admin (ID #1)
             waClient = waSessions[1];
         } else {
-            // Mengutamakan nomor WA Wali Kelas yang melakukan scan
             waClient = waSessions[parsedScannedBy];
         }
 
-        // Fallback: Jika sesi pilihan utama belum terhubung, cari sesi WA aktif lainnya
         if (!waClient) {
             const keys = Object.keys(waSessions);
             if (keys.length > 0) waClient = waSessions[keys[0]];
