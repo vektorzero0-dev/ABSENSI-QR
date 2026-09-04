@@ -5,39 +5,109 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Wali Kelas - Presensi Digital</title>
     
-    <!-- Konfigurasi Suppress Warning Tailwind CDN -->
-    <script>
-        window.tailwind = {
-            config: {
-                suppressWarning: true
-            }
-        }
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+<!-- Konfigurasi Suppress Warning Tailwind CDN -->
+<script>
+  window.tailwind = {
+    config: {
+      suppressWarning: true
+    }
+  }
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- NAVBAR -->
-    <nav class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-school text-amber-400 text-2xl"></i>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight"><%= namaSekolah %></h1>
-                    <p class="text-xs text-indigo-200">Panel Wali Kelas & Guru</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-4">
-                <span class="text-sm font-medium hidden sm:inline-block">
-                    <i class="fa-solid fa-user-circle mr-1"></i> <%= user.nama %> (<%= user.nama_kelas %>)
-                </span>
-                <a href="/" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1">
-                    <i class="fa-solid fa-right-from-bracket"></i> Keluar
-                </a>
-            </div>
-        </div>
-    </nav>
+<!-- Script Utama Dashboard Wali Kelas -->
+<script>
+  // Ambil userId dari konteks EJS
+  const currentUserId = "<%= userId %>";
+
+  // 1. Fungsi Cek Status WA secara Berkala
+  function cekStatusWA() {
+    fetch(`/api/wa-status?userId=${currentUserId}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.success) {
+          const status = data.statusWA || 'BELUM_TERHUBUNG';
+          const qr = data.qrCodeWA || null;
+          const pairing = data.pairingCode || null;
+
+          // Update Teks Status
+          const statusEl = document.getElementById('statusWAText');
+          if (statusEl) statusEl.innerText = status;
+
+          // Update Kontainer QR / Kode Pairing
+          const qrContainer = document.getElementById('qrCodeContainer');
+          if (qrContainer) {
+            if (qr) {
+              qrContainer.innerHTML = `<img src="${qr}" class="w-48 h-48 mx-auto border p-2 rounded-lg bg-white shadow-sm" alt="QR Code WA">`;
+            } else if (pairing) {
+              qrContainer.innerHTML = `
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-center">
+                  <p class="text-xs font-semibold uppercase mb-1">Kode Tautan Anda:</p>
+                  <span class="text-2xl font-mono font-bold tracking-widest text-blue-600">${pairing}</span>
+                </div>`;
+            } else if (status === 'TERHUBUNG') {
+              qrContainer.innerHTML = `
+                <div class="text-green-600 font-bold text-center p-4">
+                  <i class="fa-solid fa-circle-check text-4xl mb-2"></i>
+                  <p>WhatsApp Berhasil Terhubung!</p>
+                </div>`;
+            }
+          }
+        }
+      })
+      .catch(err => {
+        console.warn("Cek status WA tertunda:", err.message);
+      });
+  }
+
+  // 2. Fungsi Meminta Kode Pairing
+  function mintaPairingWA() {
+    const phoneInput = document.getElementById('nomorHPWA');
+    if (!phoneInput || !phoneInput.value.trim()) {
+      alert("Masukkan nomor WhatsApp terlebih dahulu!");
+      return;
+    }
+
+    const phone = phoneInput.value.trim();
+    fetch(`/api/request-pairing?userId=${currentUserId}&phone=${encodeURIComponent(phone)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("Permintaan kode tautan dikirim. Silakan tunggu...");
+          cekStatusWA();
+        } else {
+          alert("Gagal: " + (data.message || "Terjadi kesalahan."));
+        }
+      })
+      .catch(err => {
+        alert("Gagal terhubung ke server.");
+      });
+  }
+
+  // 3. Fungsi Reset Sesi WA
+  function resetSesiWA() {
+    if (!confirm("Apakah Anda yakin ingin mereset sesi WhatsApp?")) return;
+
+    fetch(`/api/reset-wa?userId=${currentUserId}`)
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message || "Sesi berhasil direset.");
+        cekStatusWA();
+      })
+      .catch(err => {
+        alert("Gagal mereset sesi.");
+      });
+  }
+
+  // Jalankan polling otomatis setiap 5 detik setelah DOM siap
+  document.addEventListener('DOMContentLoaded', () => {
+    cekStatusWA();
+    setInterval(cekStatusWA, 5000);
+  });
+</script>
 
     <!-- CONTAINER UTAMA -->
     <div class="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
