@@ -1,869 +1,1017 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administrator - <%= namaSekolah %></title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+const express = require('express');
+const session = require('express-session');
+const path = require('path');
+const pino = require('pino');
+const makeWASocket = require('@whiskeysockets/baileys').default;
+const { DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const QRCode = require('qrcode');
+const qrcodeTerminal = require('qrcode-terminal');
+const pool = require('./db');
+const useNeonAuthState = require('./waAuth'); // Menggunakan waAuth.js asli milik lu
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+// Package Import & Upload Excel
+const multer = require('multer');
+const XLSX = require('xlsx');
+const upload = multer({ storage: multer.memoryStorage() });
 
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+// Package Ekspor Laporan
+const ExcelJS = require('exceljs');
+const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, AlignmentType } = require('docx');
+const PDFDocument = require('pdfkit');
 
-        .offcanvas { z-index: 1055 !important; }
-        .offcanvas-backdrop { z-index: 1050 !important; }
+process.env.TZ = 'Asia/Jakarta';
 
-        .bg-light-animated {
-            background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-            background-image: 
-                radial-gradient(rgba(15, 23, 42, 0.05) 1.2px, transparent 1.2px),
-                linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #e2e8f0);
-            background-size: 20px 20px, 400% 400%;
-        }
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+app.use(session({
+    secret: 'secret-key-presensi-sd',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }
+}));
 
-        @keyframes pulseGlow {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.2); }
-        }
-        .animate-glow { animation: pulseGlow 5s infinite ease-in-out; }
+const waSessions = {};
+const qrCodes = {};
+const waStatus = {};
+const pairingCodes = {};
+const reconnectTimers = {};
 
-        .card-pro {
-            position: relative;
-            overflow: hidden;
-            border-radius: 1.25rem;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+// ---------------- AUTOMATIC DATABASE MIGRATION ---------------- //
+async function initDatabase() {
+    try {
+        console.log('🔄 Memeriksa struktur database PostgreSQL...');
+        
+        // 1. Tabel Pengaturan
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pengaturan (
+                kunci VARCHAR(50) PRIMARY KEY,
+                nilai TEXT
+            )
+        `);
 
-        .card-pro::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: radial-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px);
-            background-size: 14px 14px;
-            pointer-events: none;
-        }
+        // 2. Default nama_sekolah
+        await pool.query(`
+            INSERT INTO pengaturan (kunci, nilai) 
+            VALUES ('nama_sekolah', 'UPTD SD NEGERI 1 KARYA MULYA SARI') 
+            ON CONFLICT (kunci) DO NOTHING
+        `);
 
-        .card-pro:hover {
-            transform: translateY(-4px) scale(1.005);
-            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.12);
-        }
+        // 3. Default mode_pengirim_wa
+        await pool.query(`
+            INSERT INTO pengaturan (kunci, nilai) 
+            VALUES ('mode_pengirim_wa', 'WALI_KELAS') 
+            ON CONFLICT (kunci) DO NOTHING
+        `);
 
-        .card-amber-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
-            border: 1px solid #fde68a;
-        }
-        .card-emerald-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
-            border: 1px solid #a7f3d0;
-        }
-        .card-blue-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-            border: 1px solid #bfdbfe;
-        }
-        .card-purple-theme {
-            background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
-            border: 1px solid #e9d5ff;
-        }
+        // 4. Kolom 'type' untuk absensi kepulangan
+        await pool.query(`
+            ALTER TABLE absensi ADD COLUMN IF NOT EXISTS type VARCHAR(10) DEFAULT 'MASUK'
+        `);
 
-        @keyframes fadeInSoft {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fadeInSoft 0.4s ease-out forwards; }
-
-        button, .btn-interactive { transition: all 0.2s ease-in-out; }
-        button:active, .btn-interactive:active { transform: scale(0.96); }
-    </style>
-</head>
-<body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
-
-<nav class="bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-md px-4 py-3 flex items-center justify-between border-b border-amber-500/50">
-  <div class="flex items-center gap-3">
-    <button type="button" onclick="bukaSidebar()" class="btn-interactive bg-blue-800 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl border border-blue-600 font-bold text-xs flex items-center gap-2 transition shadow-sm">
-      <i class="fa-solid fa-bars text-sm"></i> <span>Menu</span>
-    </button>
-    
-    <span class="font-bold text-xs sm:text-sm tracking-wide text-amber-400 uppercase truncate">
-      <%= namaSekolah %>
-    </span>
-  </div>
-
-  <div class="text-xs text-slate-300 hidden sm:block">
-    <i class="fa-solid fa-user-shield text-amber-400 mr-1"></i> Admin Panel
-  </div>
-</nav>
-
-<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 -translate-x-full flex flex-col justify-between border-r border-slate-200">
-  <div>
-    <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
-      <h5 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-        <i class="fa-solid fa-shield-halved text-amber-400"></i> Menu Navigasi
-      </h5>
-      <button type="button" onclick="tutupSidebar()" class="text-slate-400 hover:text-white text-lg font-bold px-2">
-        &times;
-      </button>
-    </div>
-    
-    <div class="p-2 space-y-1 text-xs">
-      <a href="/admin?userId=<%= userId %>" class="flex items-center gap-3 p-3 font-semibold bg-blue-50 text-blue-900 rounded-xl">
-        <i class="fa-solid fa-house text-blue-700"></i> Dashboard Utama
-      </a>
-      <a href="/scan?userId=<%= userId %>" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-qrcode text-emerald-600"></i> Pemindai QR Presensi
-      </a>
-      <a href="/admin/cetak-kartu" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-address-card text-purple-600"></i> Cetak Kartu Siswa
-      </a>
-      <a href="#section-pengaturan" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-gear text-amber-600"></i> Pengaturan Sistem
-      </a>
-      <a href="#section-dapodik" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-file-excel text-emerald-600"></i> Impor Excel Dapodik
-      </a>
-      <a href="#section-rombel" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-school text-purple-600"></i> Kelola Rombel & Guru
-      </a>
-      <a href="#section-siswa" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-users text-blue-600"></i> Direktori Siswa
-      </a>
-      <a href="#section-presensi" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-clipboard-check text-amber-600"></i> Presensi Hari Ini
-      </a>
-    </div>
-  </div>
-
-  <div class="p-4 border-t border-slate-100">
-    <a href="/" class="flex items-center justify-center gap-2 w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs py-2.5 rounded-xl transition">
-      <i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)
-    </a>
-  </div>
-</div>
-
-<div id="sidebarOverlay" onclick="tutupSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden transition-opacity backdrop-blur-xs"></div>
-
-    <header class="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-900 text-white shadow-lg border-b-4 border-amber-500 relative overflow-hidden">
-        <div class="absolute -top-12 left-1/4 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl animate-glow pointer-events-none"></div>
-        <div class="absolute -bottom-10 right-10 w-36 h-36 bg-amber-400/20 rounded-full blur-3xl animate-glow pointer-events-none" style="animation-delay: 2.5s;"></div>
-
-        <div class="max-w-6xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 relative z-10">
-            <div class="flex items-center gap-3">
-                <div class="bg-gradient-to-tr from-amber-500 to-amber-300 p-2 rounded-xl text-slate-950 shadow-md">
-                    <i class="fa-solid fa-graduation-cap text-2xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-sm md:text-base font-extrabold tracking-wide uppercase text-slate-100"><%= namaSekolah %></h1>
-                    <p class="text-[11px] text-blue-200">Panel Kelola Administrator Sistem Presensi</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-                <a href="/scan?userId=<%= userId %>" class="btn-interactive flex-1 sm:flex-none justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-qrcode text-sm"></i> Pemindai Presensi (Scanner)
-                </a>
-                <a href="/" class="btn-interactive bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl border border-slate-700 transition flex items-center gap-1">
-                    <i class="fa-solid fa-right-from-bracket"></i> Keluar
-                </a>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 animate-fade-in">
-
-        <div class="card-pro card-amber-theme p-4 mb-6 flex items-center justify-between">
-            <div class="flex items-center gap-3 relative z-10">
-                <div class="bg-amber-600 text-white p-3 rounded-xl shadow-md">
-                    <i class="fa-solid fa-user-shield text-xl"></i>
-                </div>
-                <div>
-                    <span class="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded uppercase tracking-wider">Hak Akses: Administrator</span>
-                    <h2 class="text-base font-bold text-slate-900 mt-0.5">Dashboard Pengelolaan Data Terpadu</h2>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div class="card-pro card-blue-theme p-4 flex items-center justify-between">
-                <div class="relative z-10">
-                    <p class="text-xs text-slate-600 font-medium">Total Akun Pengguna Guru</p>
-                    <h3 class="text-xl font-bold text-slate-900 mt-1"><%= users.length %> <span class="text-xs font-normal text-slate-500">Personel</span></h3>
-                </div>
-                <div class="bg-blue-600 text-white p-3 rounded-xl relative z-10 shadow-md">
-                    <i class="fa-solid fa-users text-lg"></i>
-                </div>
-            </div>
-
-            <div class="card-pro card-emerald-theme p-4 flex items-center justify-between">
-                <div class="relative z-10">
-                    <p class="text-xs text-slate-600 font-medium">Total Peserta Didik</p>
-                    <h3 class="text-xl font-bold text-emerald-800 mt-1"><%= siswa.length %> <span class="text-xs font-normal text-slate-500">Siswa</span></h3>
-                </div>
-                <div class="bg-emerald-600 text-white p-3 rounded-xl relative z-10 shadow-md">
-                    <i class="fa-solid fa-user-graduate text-lg"></i>
-                </div>
-            </div>
-
-            <div class="card-pro card-purple-theme p-4 flex items-center justify-between">
-                <div class="relative z-10">
-                    <p class="text-xs text-slate-600 font-medium">Rombongan Belajar (Rombel)</p>
-                    <h3 class="text-xl font-bold text-purple-900 mt-1"><%= kelas.length %> <span class="text-xs font-normal text-slate-500">Kelas</span></h3>
-                </div>
-                <div class="bg-purple-600 text-white p-3 rounded-xl relative z-10 shadow-md">
-                    <i class="fa-solid fa-school text-lg"></i>
-                </div>
-            </div>
-        </div>
-
-        <!-- KOTAK PENGATURAN SISTEM (NAMA SEKOLAH & MODE PENGIRIM WA) -->
-        <div id="section-pengaturan" class="card-pro card-amber-theme p-5 mb-6">
-            <div class="flex items-center gap-3 mb-3 border-b border-amber-200/60 pb-2 relative z-10">
-                <div class="bg-amber-600 text-white p-2.5 rounded-xl shadow-md">
-                    <i class="fa-solid fa-sliders text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Pengaturan Nama Sekolah & Opsi Notifikasi WA</h3>
-                    <p class="text-[11px] text-slate-600">Ubah identitas sekolah dan tentukan akun WhatsApp pengirim notifikasi presensi.</p>
-                </div>
-            </div>
-
-            <form action="/api/pengaturan" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-3 relative z-10">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Nama Instansi / Sekolah</label>
-                    <input type="text" name="nama_sekolah" value="<%= namaSekolah %>" required class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Mode Pengirim WhatsApp Notifikasi</label>
-                    <select name="mode_pengirim_wa" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                        <option value="WALI_KELAS" <%= modePengirim === 'WALI_KELAS' ? 'selected' : '' %>>Sesuai Wali Kelas (Masing-masing Akun WA)</option>
-                        <option value="TERPUSAT" <%= modePengirim === 'TERPUSAT' ? 'selected' : '' %>>Terpusat Satu Nomor (Gunakan WA Admin)</option>
-                    </select>
-                </div>
-
-                <div class="flex items-end">
-                    <button type="submit" class="btn-interactive w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs py-2 rounded-xl transition shadow-md flex items-center justify-center gap-1.5 border border-amber-800">
-                        <i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan
-                    </button>
-                </div>
-            </form>
-        </div>
-<!-- KOTAK KONEKSI WA GATEWAY KHUSUS ADMIN -->
-<div class="mt-4 pt-4 border-t border-amber-200/60 relative z-10">
-    <label class="block text-[11px] font-bold text-slate-700 mb-1">Status Connections WA Gateway (Admin)</label>
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-xl border border-amber-300">
-        <div>
-            <p class="text-xs text-slate-700 font-medium" id="adminWaStatusText">
-                Status Admin: <span class="text-slate-500 font-bold">Memeriksa...</span>
-            </p>
-            <div id="adminPairingContainer" class="hidden mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200 text-center">
-                <span class="text-[10px] text-blue-800 font-medium block">Kode Tautan WA Admin:</span>
-                <strong id="adminPairingCodeText" class="text-lg font-mono text-blue-900 tracking-widest block my-0.5">-</strong>
-                <span class="text-[9px] text-blue-700 block">Masukkan di HP (WA > Perangkat Tertaut > Tautkan dg Nomor)</span>
-            </div>
-        </div>
-        <div class="flex gap-2 w-full sm:w-auto justify-end">
-            <button type="button" onclick="mintaPairingAdmin()" id="btnPairingAdmin" class="btn-interactive bg-blue-800 hover:bg-blue-900 text-white text-xs px-3.5 py-2 rounded-xl font-semibold transition flex items-center gap-1.5 shadow-md">
-                <i class="fa-solid fa-mobile-screen-button"></i> Tautkan Nomor WA Admin
-            </button>
-            <button type="button" onclick="resetWAAdmin()" class="btn-interactive bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2 rounded-xl border border-rose-200 font-semibold transition flex items-center gap-1.5">
-                <i class="fa-solid fa-trash"></i> Reset WA
-            </button>
-        </div>
-    </div>
-</div>
-
-<script>
-    function cekStatusWAAdmin() {
-        fetch('/api/wa-status?userId=1')
-            .then(res => res.json())
-            .then(data => {
-                const statusText = document.getElementById('adminWaStatusText');
-                const pairingContainer = document.getElementById('adminPairingContainer');
-                const pairingCodeText = document.getElementById('adminPairingCodeText');
-
-                if (data.statusWA === 'TERHUBUNG') {
-                    statusText.innerHTML = `Status Admin: <span class="text-emerald-700 font-bold">Terhubung & Siap Terkirim ✅</span>`;
-                    pairingContainer.classList.add('hidden');
-                } else if (data.pairingCode) {
-                    statusText.innerHTML = `Status Admin: <span class="text-blue-700 font-bold">Masukkan Kode di WA HP 📲</span>`;
-                    pairingCodeText.innerText = data.pairingCode;
-                    pairingContainer.classList.remove('hidden');
-                } else if (data.statusWA === 'MENUNGGU_PAIRING_CODE') {
-                    statusText.innerHTML = `Status Admin: <span class="text-amber-600 font-bold">Menyiapkan Tautan... ⏳</span>`;
-                } else {
-                    statusText.innerHTML = `Status Admin: <span class="text-rose-600 font-bold">Belum Terhubung ❌</span>`;
-                    pairingContainer.classList.add('hidden');
-                }
-            })
-            .catch(err => console.error("Gagal cek WA Admin:", err));
+        console.log('✅ Inisialisasi Database Siap!');
+    } catch (err) {
+        console.error('❌ Gagal Migration Database:', err.message);
     }
+}
 
-    function mintaPairingAdmin() {
-        const noHp = prompt("Masukkan Nomor WhatsApp Admin (Contoh: 082371729760):");
-        if (!noHp) return;
+initDatabase();
 
-        const btn = document.getElementById('btnPairingAdmin');
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-        btn.disabled = true;
+function bersihkanGelar(nama) {
+    if (!nama) return '';
+    return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
+}
 
-        fetch(`/api/request-pairing?userId=1&phone=${encodeURIComponent(noHp)}`)
-            .then(res => res.json())
-            .then(data => {
-                alert("Mempersiapkan kode tautan. Silakan tunggu 3-5 detik...");
-                setTimeout(() => {
-                    btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Tautkan Nomor WA Admin`;
-                    btn.disabled = false;
-                    cekStatusWAAdmin();
-                }, 3000);
-            });
+async function generateQRDataURL(text) {
+    try {
+        if (!text) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
+        return await QRCode.toDataURL(text.toString());
+    } catch (err) {
+        console.error("Gagal Generate QR:", err.message);
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
     }
+}
 
-    function resetWAAdmin() {
-        if (!confirm('Hapus sesi WhatsApp Admin?')) return;
-        fetch('/api/reset-wa?userId=1')
-            .then(res => res.json())
-            .then(data => {
-                alert(data.message);
-                cekStatusWAAdmin();
-            });
+// Helper Pengaturan Nama Sekolah & Mode Pengirim WA
+async function getNamaSekolah() {
+    try {
+        const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = 'nama_sekolah'");
+        if (res.rows.length > 0 && res.rows[0].nilai) return res.rows[0].nilai;
+    } catch (err) {
+        console.error("Gagal mengambil nama_sekolah:", err.message);
     }
+    return "UPTD SD NEGERI 1 KARYA MULYA SARI";
+}
 
-    setInterval(cekStatusWAAdmin, 3000);
-    cekStatusWAAdmin();
-</script>
-        <div id="section-dapodik" class="card-pro card-emerald-theme p-5 mb-6">
-            <div class="flex items-center gap-3 mb-3 border-b border-emerald-200/60 pb-2 relative z-10">
-                <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
-                    <i class="fa-solid fa-file-excel text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Impor Massal Data Siswa (Format Dapodik/Excel)</h3>
-                    <p class="text-[11px] text-slate-600">Unggah berkas rekap Excel (.xlsx / .csv) dari Dapodik untuk menambahkan siswa & rombel secara otomatis.</p>
-                </div>
-            </div>
+async function getModePengirim() {
+    try {
+        const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = 'mode_pengirim_wa'");
+        if (res.rows.length > 0 && res.rows[0].nilai) return res.rows[0].nilai;
+    } catch (err) {
+        console.error("Gagal mengambil mode_pengirim_wa:", err.message);
+    }
+    return "WALI_KELAS";
+}
 
-            <form id="formImportExcel" onsubmit="prosesImportExcel(event)" class="flex flex-col sm:flex-row items-center gap-3 relative z-10">
-                <input type="file" id="fileExcelInput" accept=".xlsx, .xls, .csv" required class="flex-1 text-xs text-slate-700 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200 border border-emerald-300 rounded-xl p-1 w-full bg-white">
-                
-                <button type="submit" id="btnImportExcel" class="btn-interactive w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-emerald-800 whitespace-nowrap shadow-md">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload & Impor Data
-                </button>
-            </form>
-        </div>
+// ----------------- WHATSAPP CONNECTION (KEMBALI KE NEON AUTH ASLI LU) ----------------- //
 
-        <div id="section-rombel" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="card-pro card-purple-theme p-5">
-                <div class="flex justify-between items-center border-b border-purple-200/60 pb-2 mb-4 relative z-10">
-                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-plus-circle text-purple-700"></i> Rombongan Belajar
-                    </h3>
+async function connectToWhatsApp(userId, phoneNumber = null) {
+    try {
+        if (reconnectTimers[userId]) {
+            clearTimeout(reconnectTimers[userId]);
+            delete reconnectTimers[userId];
+        }
+
+        if (waSessions[userId]) {
+            try { waSessions[userId].end(undefined); } catch (e) {}
+            delete waSessions[userId];
+        }
+
+        waStatus[userId] = phoneNumber ? 'MENUNGGU_PAIRING_CODE' : 'PROSES_INIT';
+        delete qrCodes[userId];
+        delete pairingCodes[userId];
+
+        // MENGGUNAKAN NEON POSTGRES AUTH STATE ASLI MILIK LU
+        const { state, saveCreds } = await useNeonAuthState(pool, `user_${userId}`);
+        const { version } = await fetchLatestBaileysVersion();
+
+        console.log(`⚡ [User #${userId}] Inisialisasi WA Socket (Baileys v${version.join('.')})...`);
+
+        const sock = makeWASocket({
+            logger: pino({ level: 'silent' }),
+            auth: state,
+            printQRInTerminal: false,
+            browser: ["Ubuntu", "Chrome", "120.0.0.0"]
+        });
+
+        waSessions[userId] = sock;
+        sock.ev.on('creds.update', saveCreds);
+
+        if (phoneNumber && !sock.authState.creds.registered) {
+            setTimeout(async () => {
+                try {
+                    let cleanPhone = phoneNumber.toString().replace(/[^0-9]/g, '');
+                    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.slice(1);
                     
-                    <% if (kelas && kelas.length > 0) { %>
-                        <form action="/api/kelas/hapus-semua" method="POST" onsubmit="return confirm('HAPUS SELURUH ROMBEL?\n\nSemua rombel ganda akan dibersihkan.');">
-                            <button type="submit" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-rose-200 transition flex items-center gap-1">
-                                <i class="fa-solid fa-trash-can text-rose-600"></i> Kosongkan Semua Rombel
-                            </button>
-                        </form>
-                    <% } %>
-                </div>
+                    console.log(`📱 Meminta Pairing Code WA untuk nomor: ${cleanPhone}`);
+                    const code = await sock.requestPairingCode(cleanPhone);
+                    pairingCodes[userId] = code;
+                    waStatus[userId] = 'MENUNGGU_PAIRING_CODE';
+                    console.log(`🔑 [User #${userId}] Pairing Code WA Terbit: ${code}`);
+                } catch (pErr) {
+                    console.error("Gagal Request Pairing Code:", pErr.message);
+                    waStatus[userId] = 'ERROR_PAIRING';
+                }
+            }, 3000);
+        }
 
-                <form action="/api/kelas/tambah" method="POST" class="flex gap-2 relative z-10">
-                    <input type="text" name="nama_kelas" required placeholder="Contoh: Kelas 1A" class="flex-1 bg-white border border-purple-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600">
-                    <button type="submit" class="btn-interactive bg-purple-700 hover:bg-purple-800 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shadow-md">Simpan</button>
-                </form>
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
 
-                <div class="mt-4 flex flex-wrap gap-2 relative z-10">
-                    <% if (kelas && kelas.length > 0) { %>
-                        <% kelas.forEach(k => { %>
-                            <span class="bg-purple-100 text-purple-900 border border-purple-300 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                                <%= k.nama_kelas %>
-                                <form action="/api/kelas/hapus/<%= k.id %>" method="POST" onsubmit="return confirm('Hapus rombel <%= k.nama_kelas %>?');" class="inline">
-                                    <button type="submit" class="text-purple-400 hover:text-rose-600 font-bold ml-1 text-xs">
-                                        &times;
-                                    </button>
-                                </form>
-                            </span>
-                        <% }); %>
-                    <% } else { %>
-                        <p class="text-[11px] text-slate-400 italic">Belum ada rombel terdaftar.</p>
-                    <% } %>
-                </div>
-            </div>
+            if (qr && !phoneNumber && !sock.authState.creds.registered) {
+                try {
+                    qrCodes[userId] = await generateQRDataURL(qr);
+                    waStatus[userId] = 'MENUNGGU_SCAN';
 
-            <div class="card-pro card-blue-theme p-5">
-                <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
-                    <i class="fa-solid fa-user-plus text-blue-700"></i> Registrasi Akun Wali Kelas / Guru
-                </h3>
-                <form action="/api/guru/tambah" method="POST" class="space-y-3 relative z-10">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" name="nama" required placeholder="Nama Lengkap Tenaga Pendidik" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <input type="text" name="username" required placeholder="Nama Pengguna (Username)" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="password" name="password" required placeholder="Kata Sandi" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <select name="kelas_id" class="bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                            <option value="">-- Penugasan Rombel --</option>
-                            <% kelas.forEach(k => { %>
-                                <option value="<%= k.id %>"><%= k.nama_kelas %></option>
-                            <% }); %>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-interactive w-full bg-blue-900 hover:bg-blue-800 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-md">
-                        Daftarkan Pengguna Baru
-                    </button>
-                </form>
-            </div>
-        </div>
+                    console.log(`\n========================================`);
+                    console.log(`📲 [User #${userId}] SCAN QR CODE TERBIT`);
+                    console.log(`========================================\n`);
+                    qrcodeTerminal.generate(qr, { small: true });
 
-        <div class="card-pro card-amber-theme p-5 mb-6">
-            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-amber-200/60 pb-2 relative z-10">
-                <i class="fa-solid fa-address-card text-amber-700"></i> Registrasi Peserta Didik Baru (Manual)
-            </h3>
-            <form action="/api/siswa/tambah" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10">
-                <input type="text" name="nama" required placeholder="Nama Lengkap Siswa" class="bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                <input type="text" name="nomor_wa_ortu" placeholder="No. WhatsApp Orang Tua (Contoh: 082371729760)" class="bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                <div class="flex gap-2">
-                    <select name="kelas_id" required class="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                        <option value="">-- Pilih Rombel Kelas --</option>
-                        <% kelas.forEach(k => { %>
-                            <option value="<%= k.id %>"><%= k.nama_kelas %></option>
-                        <% }); %>
-                    </select>
-                    <button type="submit" class="btn-interactive bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shadow-md">Simpan Siswa</button>
-                </div>
-            </form>
-        </div>
+                } catch (qrErr) {
+                    console.error("Gagal generate QR Code WA:", qrErr);
+                }
+            }
 
-        <div class="card-pro card-blue-theme p-5 mb-6">
-            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
-                <i class="fa-solid fa-users-gear text-blue-700"></i> Direktori Akun Tenaga Pendidik
-            </h3>
-            <div class="overflow-x-auto relative z-10">
-                <table class="w-full text-xs text-left text-slate-700 border-collapse min-w-[500px]">
-                    <thead class="bg-blue-100/70 text-slate-800 uppercase text-[10px] font-bold border-b border-blue-200">
-                        <tr>
-                            <th class="p-3">Nama Pengguna</th>
-                            <th class="p-3">Username</th>
-                            <th class="p-3">Peran / Hak Akses</th>
-                            <th class="p-3">Penugasan Rombel</th>
-                            <th class="p-3 text-center">Tindakan</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-blue-100 bg-white/70">
-                        <% users.forEach(u => { %>
-                            <tr class="hover:bg-blue-50/50 transition-colors">
-                                <td class="p-3 font-semibold text-slate-900"><%= u.nama %></td>
-                                <td class="p-3 font-mono text-slate-600"><%= u.username %></td>
-                                <td class="p-3">
-                                    <span class="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded border border-slate-200 font-medium">
-                                        <%= u.role %>
-                                    </span>
-                                </td>
-                                <td class="p-3 text-blue-800 font-bold"><%= u.nama_kelas %></td>
-                                <td class="p-3 text-center">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <button type="button" 
-                                                data-id="<%= u.id %>" 
-                                                data-nama="<%= encodeURIComponent(u.nama) %>" 
-                                                data-username="<%= encodeURIComponent(u.username) %>" 
-                                                data-kelas="<%= u.kelas_id || '' %>" 
-                                                onclick="bukaModalEditGuru(this)" 
-                                                class="btn-interactive text-blue-700 hover:text-blue-900 text-xs font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg transition">
-                                            <i class="fa-solid fa-pen-to-square mr-1"></i> Edit / Password
-                                        </button>
+            if (connection === 'open') {
+                waStatus[userId] = 'TERHUBUNG';
+                delete qrCodes[userId];
+                delete pairingCodes[userId];
+                if (reconnectTimers[userId]) {
+                    clearTimeout(reconnectTimers[userId]);
+                    delete reconnectTimers[userId];
+                }
+                console.log(`✅ [User #${userId}] WhatsApp Berhasil Terhubung!`);
+            }
 
-                                        <% if (u.role !== 'ADMIN') { %>
-                                            <button type="button" 
-                                                    data-id="<%= u.id %>" 
-                                                    data-nama="<%= encodeURIComponent(u.nama) %>" 
-                                                    onclick="hapusGuru(this)" 
-                                                    class="btn-interactive text-rose-600 hover:text-rose-800 text-xs font-medium bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition">
-                                                <i class="fa-solid fa-trash mr-1"></i> Hapus
-                                            </button>
-                                        <% } %>
-                                    </div>
-                                </td>
-                            </tr>
-                        <% }); %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+            if (connection === 'close') {
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
-        <div id="section-siswa" class="card-pro card-emerald-theme p-5 mb-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-emerald-200/60 pb-3 relative z-10">
-                <div>
-                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-id-card text-emerald-700"></i> Direktori Peserta Didik & Kode QR Kartu
-                    </h3>
-                    <p class="text-[11px] text-slate-600 mt-0.5">Daftar kartu identitas digital siswa yang valid untuk presensi kehadiran.</p>
-                </div>
-                
-                <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <form action="/api/siswa/hapus-semua" method="POST" onsubmit="return confirm('RESET TOTAL DATABASE?\n\nSeluruh data siswa, riwayat absensi, dan rombel akan DIHAPUS PERMANEN.');" class="inline">
-                        <button type="submit" class="btn-interactive bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2 rounded-xl border border-rose-200 font-semibold transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-rotate-left text-rose-600"></i> Reset Total Database
-                        </button>
-                    </form>
+                console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
+                waStatus[userId] = 'TERPUTUS';
+                delete waSessions[userId];
 
-                    <a href="/admin/cetak-kartu" class="btn-interactive bg-purple-700 hover:bg-purple-800 text-white text-xs px-3.5 py-2 rounded-xl border border-purple-800 font-semibold transition flex items-center gap-1.5 shadow-md">
-                        <i class="fa-solid fa-address-card"></i> Cetak Kartu Siswa
-                    </a>
-                </div>
-            </div>
+                if (!isLoggedOut) {
+                    console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
+                    if (!reconnectTimers[userId]) {
+                        reconnectTimers[userId] = setTimeout(() => {
+                            delete reconnectTimers[userId];
+                            connectToWhatsApp(userId);
+                        }, 8000);
+                    }
+                } else {
+                    console.log(`🚪 User #${userId} Logged Out. Menghapus sesi DB...`);
+                    delete qrCodes[userId];
+                    delete pairingCodes[userId];
+                    await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
+                }
+            }
+        });
+    } catch (err) {
+        console.error(`❌ WA Connect Error User #${userId}:`, err.message);
+        waStatus[userId] = 'ERROR';
+    }
+}
 
-            <div class="overflow-x-auto relative z-10">
-                <table class="w-full text-xs text-left text-slate-700 border-collapse min-w-[600px]">
-                    <thead class="bg-emerald-100/70 text-slate-800 uppercase text-[10px] font-bold border-b border-emerald-200">
-                        <tr>
-                            <th class="p-3">ID Siswa</th>
-                            <th class="p-3">Kode QR</th>
-                            <th class="p-3">Nama Lengkap Siswa</th>
-                            <th class="p-3">Rombel Kelas</th>
-                            <th class="p-3">No. WhatsApp Orang Tua</th>
-                            <th class="p-3 text-center">Tindakan</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-emerald-100 bg-white/70">
-                        <% if (siswa && siswa.length > 0) { %>
-                            <% siswa.forEach(s => { %>
-                                <tr class="hover:bg-emerald-50/50 transition-colors">
-                                    <td class="p-3 font-mono font-bold text-emerald-800">#<%= s.id %></td>
-                                    <td class="p-3">
-                                        <div class="bg-white p-1 rounded-lg inline-block border border-slate-300 shadow-sm">
-                                            <img src="<%= s.qrImage %>" alt="QR <%= s.nama %>" class="w-12 h-12">
-                                        </div>
-                                    </td>
-                                    <td class="p-3 font-semibold text-slate-900"><%= s.nama %></td>
-                                    <td class="p-3">
-                                        <span class="bg-white text-slate-700 text-[10px] font-bold px-2.5 py-1 rounded border border-slate-200">
-                                            <%= s.nama_kelas %>
-                                        </span>
-                                    </td>
-                                    <td class="p-3 font-mono text-slate-700">
-                                        <i class="fa-brands fa-whatsapp text-emerald-600 mr-1"></i><%= s.nomor_wa_ortu || '-' %>
-                                    </td>
-                                    <td class="p-3 text-center">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button type="button" 
-                                                    data-id="<%= s.id %>" 
-                                                    data-nama="<%= encodeURIComponent(s.nama) %>" 
-                                                    data-wa="<%= encodeURIComponent(s.nomor_wa_ortu || '') %>" 
-                                                    data-kelas="<%= s.kelas_id || '' %>" 
-                                                    onclick="bukaModalEditSiswa(this)" 
-                                                    class="btn-interactive text-emerald-700 hover:text-emerald-900 text-xs font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg transition">
-                                                <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
-                                            </button>
+// ---------------- ROUTES HALAMAN ---------------- //
 
-                                            <button type="button" 
-                                                    data-id="<%= s.id %>" 
-                                                    data-nama="<%= encodeURIComponent(s.nama) %>" 
-                                                    onclick="hapusSiswa(this)" 
-                                                    class="btn-interactive text-rose-600 hover:text-rose-800 text-xs font-medium bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition">
-                                                <i class="fa-solid fa-trash mr-1"></i> Hapus
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <% }); %>
-                        <% } else { %>
-                            <tr>
-                                <td colspan="6" class="p-8 text-center text-slate-400 italic">
-                                    <i class="fa-solid fa-folder-open text-2xl mb-1 block text-slate-300"></i>
-                                    Belum ada siswa terdaftar. Silakan lakukan impor data Excel Dapodik atau tambah manual.
-                                </td>
-                            </tr>
-                        <% } %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+app.get('/', async (req, res) => {
+    const namaSekolah = await getNamaSekolah();
+    res.render('login', { error: null, namaSekolah });
+});
 
-        <!-- REKAP PRESENSI HARI INI (ADA FILTER MASUK/PULANG) -->
-        <div id="section-presensi" class="card-pro card-purple-theme p-5 mb-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-purple-200/60 pb-3 relative z-10">
-                <div>
-                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-clipboard-user text-purple-700"></i> Rekapitulasi Presensi Kehadiran Hari Ini
-                    </h3>
-                    <p class="text-[11px] text-slate-600 mt-0.5">Daftar log aktivitas scan kartu siswa (Masuk & Kepulangan).</p>
-                </div>
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    const namaSekolah = await getNamaSekolah();
+    try {
+        if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.', namaSekolah });
 
-                <form action="/api/absensi/reset-riwayat" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat absensi uji coba?\n\nCatatan: Data siswa, guru, dan rombel kelas TIDAK akan terhapus.');">
-                    <button type="submit" class="btn-interactive bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold px-3.5 py-2 rounded-xl border border-amber-300 transition flex items-center gap-1.5 shadow-xs">
-                        <i class="fa-solid fa-broom text-amber-600"></i> Bersihkan Riwayat Uji Coba
-                    </button>
-                </form>
-            </div>
+        const result = await pool.query(
+            'SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
+            [username.trim(), password.trim()]
+        );
 
-            <div class="overflow-x-auto relative z-10">
-                <table class="w-full text-xs text-left text-slate-700 border-collapse min-w-[500px]">
-                    <thead class="bg-purple-100/70 text-slate-800 uppercase text-[10px] font-bold border-b border-purple-200">
-                        <tr>
-                            <th class="p-3">Nama Siswa</th>
-                            <th class="p-3">Rombel Kelas</th>
-                            <th class="p-3">Waktu Presensi</th>
-                            <th class="p-3 text-center">Tipe Scan</th>
-                            <th class="p-3 text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-purple-100 bg-white/70">
-                        <% if (typeof absensiHariIni !== 'undefined' && absensiHariIni && absensiHariIni.length > 0) { %>
-                            <% absensiHariIni.forEach(a => { %>
-                                <tr class="hover:bg-purple-50/50 transition-colors">
-                                    <td class="p-3 font-semibold text-slate-900"><%= a.nama_siswa %></td>
-                                    <td class="p-3 text-slate-600"><%= a.nama_kelas %></td>
-                                    <td class="p-3 font-mono text-slate-600"><%= a.waktu_formatted %></td>
-                                    <td class="p-3 text-center">
-                                        <% if (a.type === 'PULANG') { %>
-                                            <span class="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
-                                                <i class="fa-solid fa-right-from-bracket mr-1"></i> PULANG
-                                            </span>
-                                        <% } else { %>
-                                            <span class="bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
-                                                <i class="fa-solid fa-right-to-bracket mr-1"></i> MASUK
-                                            </span>
-                                        <% } %>
-                                    </td>
-                                    <td class="p-3 text-center">
-                                        <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
-                                            HADIR
-                                        </span>
-                                    </td>
-                                </tr>
-                            <% }); %>
-                        <% } else { %>
-                            <tr>
-                                <td colspan="5" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi untuk hari ini.</td>
-                            </tr>
-                        <% } %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        if (result.rows.length === 0) return res.render('login', { error: 'Username atau kata sandi tidak valid.', namaSekolah });
 
-    </main>
+        const user = result.rows[0];
+        req.session.userId = user.id;
 
-    <form id="formHapusUmum" action="" method="POST" class="hidden"></form>
+        if (user.role === 'ADMIN') {
+            return res.redirect(`/admin?userId=${user.id}`);
+        } else {
+            return res.redirect(`/wali?userId=${user.id}`);
+        }
+    } catch (err) {
+        return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message, namaSekolah });
+    }
+});
 
-    <div id="modalEditGuru" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-user-pen text-blue-600"></i> Edit Profil / Ubah Password Guru
-                </h3>
-                <button type="button" onclick="tutupModalEditGuru()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
+app.get('/admin', async (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId || 1;
+    try {
+        const usersRes = await pool.query(`
+            SELECT u.id, u.nama, u.username, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Tanpa Penugasan') AS nama_kelas 
+            FROM users u LEFT JOIN kelas k ON u.kelas_id = k.id ORDER BY u.id ASC
+        `);
+        const siswaRes = await pool.query(`
+            SELECT s.id, s.nama, s.nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id ORDER BY s.id ASC
+        `);
+        const kelasRes = await pool.query(`SELECT * FROM kelas ORDER BY id ASC`);
 
-            <form id="formEditGuru" action="" method="POST" class="space-y-3">
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Nama Lengkap Guru</label>
-                    <input type="text" id="editNamaGuru" name="nama" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                </div>
+        const absensiRes = await pool.query(`
+            SELECT a.id, a.waktu, COALESCE(a.type, 'MASUK') AS type, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            FROM absensi a 
+            JOIN siswa s ON a.siswa_id = s.id 
+            LEFT JOIN kelas k ON s.kelas_id = k.id 
+            WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+            ORDER BY a.waktu DESC
+        `);
 
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Username (Nama Pengguna)</label>
-                    <input type="text" id="editUsernameGuru" name="username" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                </div>
+        const absensiFormatted = absensiRes.rows.map(row => {
+            const dateObj = new Date(row.waktu);
+            const waktuWIB = dateObj.toLocaleTimeString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(/\./g, ':') + ' WIB';
 
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">
-                        Password Baru <span class="text-slate-400 font-normal">(Kosongkan jika tidak diubah)</span>
-                    </label>
-                    <input type="password" id="editPasswordGuru" name="password" placeholder="Masukkan password baru" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                </div>
+            return { ...row, waktu_formatted: waktuWIB };
+        });
 
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Penugasan Rombel</label>
-                    <select id="editKelasGuru" name="kelas_id" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                        <option value="">-- Tanpa Penugasan --</option>
-                        <% kelas.forEach(k => { %>
-                            <option value="<%= k.id %>"><%= k.nama_kelas %></option>
-                        <% }); %>
-                    </select>
-                </div>
+        const usersCleaned = usersRes.rows.map(u => ({ ...u, nama: bersihkanGelar(u.nama) }));
+        const siswaData = await Promise.all(siswaRes.rows.map(async (s) => {
+            const qrImage = await generateQRDataURL(s.id.toString());
+            return { ...s, qrImage };
+        }));
 
-                <div class="flex gap-2 pt-3">
-                    <button type="button" onclick="tutupModalEditGuru()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl border border-slate-300 transition">
-                        Batal
-                    </button>
-                    <button type="submit" class="flex-1 bg-blue-800 hover:bg-blue-900 text-white font-semibold text-xs py-2.5 rounded-xl border border-blue-900 transition">
-                        Simpan Perubahan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+        const namaSekolah = await getNamaSekolah();
+        const modePengirim = await getModePengirim();
 
-    <div id="modalEditSiswa" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-user-pen text-emerald-600"></i> Edit Data Siswa / WhatsApp
-                </h3>
-                <button type="button" onclick="tutupModalEditSiswa()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
+        res.render('admin-dashboard', {
+            users: usersCleaned,
+            siswa: siswaData,
+            kelas: kelasRes.rows || [],
+            absensiHariIni: absensiFormatted,
+            userId: userId,
+            namaSekolah: namaSekolah,
+            modePengirim: modePengirim
+        });
+    } catch (err) {
+        res.status(500).send("Kesalahan Database: " + err.message);
+    }
+});
 
-            <form id="formEditSiswa" action="" method="POST" class="space-y-3">
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Nama Lengkap Siswa</label>
-                    <input type="text" id="editNamaSiswa" name="nama" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600">
-                </div>
+app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
+    try {
+        const siswaRes = await pool.query(`
+            SELECT s.id, s.nama, s.nomor_wa_ortu, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id ORDER BY s.nama ASC
+        `);
 
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">No. WhatsApp Ortu/Wali</label>
-                    <input type="text" id="editWaSiswa" name="nomor_wa_ortu" placeholder="Contoh: 082371729760" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600">
-                </div>
+        const siswaData = await Promise.all(siswaRes.rows.map(async (s) => {
+            const qrImage = await generateQRDataURL(s.id.toString());
+            return { ...s, qrImage };
+        }));
 
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Rombongan Belajar (Kelas)</label>
-                    <select id="editKelasSiswa" name="kelas_id" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-600">
-                        <option value="">-- Tanpa Rombel --</option>
-                        <% kelas.forEach(k => { %>
-                            <option value="<%= k.id %>"><%= k.nama_kelas %></option>
-                        <% }); %>
-                    </select>
-                </div>
+        const namaSekolah = await getNamaSekolah();
 
-                <div class="flex gap-2 pt-3">
-                    <button type="button" onclick="tutupModalEditSiswa()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl border border-slate-300 transition">
-                        Batal
-                    </button>
-                    <button type="submit" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs py-2.5 rounded-xl border border-emerald-800 transition">
-                        Simpan Perubahan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+        res.render('cetak-kartu', { siswa: siswaData, namaSekolah: namaSekolah });
+    } catch (err) {
+        res.status(500).send("Gagal memuat kartu: " + err.message);
+    }
+});
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId;
+    if (!userId) return res.redirect('/');
 
-    <script>
-        function prosesImportExcel(e) {
-            e.preventDefault();
-            const fileInput = document.getElementById('fileExcelInput');
-            const btn = document.getElementById('btnImportExcel');
+    try {
+        const userRes = await pool.query(`
+            SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+            FROM users u
+            LEFT JOIN kelas k ON u.kelas_id = k.id
+            WHERE u.id = $1
+        `, [userId]);
 
-            if (!fileInput.files.length) return alert("Pilih berkas Excel terlebih dahulu!");
+        if (userRes.rows.length === 0) return res.redirect('/');
+        
+        const userRaw = userRes.rows[0];
+        userRaw.nama = bersihkanGelar(userRaw.nama);
 
-            const formData = new FormData();
-            formData.append('file_excel', fileInput.files[0]);
+        let siswaQuery = `
+            SELECT s.id, s.nama, s.nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            FROM siswa s 
+            LEFT JOIN kelas k ON s.kelas_id = k.id
+        `;
+        const queryParamsSiswa = [];
 
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-            btn.disabled = true;
+        if (userRaw.kelas_id) {
+            siswaQuery += ` WHERE s.kelas_id = $1`;
+            queryParamsSiswa.push(parseInt(userRaw.kelas_id));
+        }
 
-            fetch('/api/siswa/import-excel', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert(data.message);
-                btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Upload & Impor Data`;
-                btn.disabled = false;
-                if (data.success) location.reload();
-            })
-            .catch(err => {
-                console.error("Error Import:", err);
-                alert("Terjadi kesalahan saat mengunggah berkas.");
-                btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Upload & Impor Data`;
-                btn.disabled = false;
+        siswaQuery += ` ORDER BY s.nama ASC`;
+        const siswaRes = await pool.query(siswaQuery, queryParamsSiswa);
+
+        let absensiQuery = `
+            SELECT a.id, a.waktu, COALESCE(a.type, 'MASUK') AS type, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            FROM absensi a 
+            JOIN siswa s ON a.siswa_id = s.id 
+            LEFT JOIN kelas k ON s.kelas_id = k.id 
+            WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
+        `;
+        const queryParamsAbsensi = [];
+
+        if (userRaw.kelas_id) {
+            absensiQuery += ` AND s.kelas_id = $1`;
+            queryParamsAbsensi.push(parseInt(userRaw.kelas_id));
+        }
+
+        absensiQuery += ` ORDER BY a.waktu DESC`;
+        const absensiRes = await pool.query(absensiQuery, queryParamsAbsensi);
+
+        const absensiFormatted = absensiRes.rows.map(row => {
+            const dateObj = new Date(row.waktu);
+            const waktuWIB = dateObj.toLocaleTimeString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(/\./g, ':') + ' WIB';
+
+            return { ...row, waktu_formatted: waktuWIB };
+        });
+
+        const siswaData = await Promise.all(siswaRes.rows.map(async (s) => {
+            const qrImage = await generateQRDataURL(s.id.toString());
+            return { ...s, qrImage };
+        }));
+
+        req.session.userId = userId;
+        const namaSekolah = await getNamaSekolah();
+
+        res.render('walikelas-dashboard', {
+            user: userRaw,
+            siswaList: siswaData,
+            absensiHariIni: absensiFormatted,
+            userId: userId,
+            statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
+            qrCodeWA: qrCodes[userId] || null,
+            namaSekolah: namaSekolah
+        });
+    } catch (err) {
+        console.error("Dashboard Error User #" + userId + ":", err);
+        res.status(500).send("Kesalahan Database: " + err.message);
+    }
+});
+
+app.get(['/scan', '/scanner'], async (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId || 1;
+    const namaSekolah = await getNamaSekolah();
+    res.render('scan', { userId: userId, namaSekolah: namaSekolah });
+});
+
+// ---------------- API PENGATURAN ADMIN ---------------- //
+
+app.post('/api/pengaturan', async (req, res) => {
+    const { nama_sekolah, mode_pengirim_wa } = req.body;
+    try {
+        if (nama_sekolah) {
+            await pool.query(
+                `INSERT INTO pengaturan (kunci, nilai) VALUES ('nama_sekolah', $1)
+                 ON CONFLICT (kunci) DO UPDATE SET nilai = EXCLUDED.nilai`,
+                [nama_sekolah.trim()]
+            );
+        }
+        if (mode_pengirim_wa) {
+            await pool.query(
+                `INSERT INTO pengaturan (kunci, nilai) VALUES ('mode_pengirim_wa', $1)
+                 ON CONFLICT (kunci) DO UPDATE SET nilai = EXCLUDED.nilai`,
+                [mode_pengirim_wa.trim()]
+            );
+        }
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal memperbarui pengaturan: " + err.message);
+    }
+});
+
+// ---------------- API KELOLA KELAS & ROMBEL ---------------- //
+
+app.post('/api/kelas/tambah', async (req, res) => {
+    const { nama_kelas } = req.body;
+    try {
+        if (!nama_kelas) return res.status(400).send("Nama kelas wajib diisi.");
+        await pool.query('INSERT INTO kelas (nama_kelas) VALUES ($1)', [nama_kelas.trim()]);
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menambah kelas: " + err.message);
+    }
+});
+
+app.post('/api/kelas/hapus/:id', async (req, res) => {
+    const kelasId = parseInt(req.params.id);
+    try {
+        await pool.query('UPDATE users SET kelas_id = NULL WHERE kelas_id = $1', [kelasId]);
+        await pool.query('UPDATE siswa SET kelas_id = NULL WHERE kelas_id = $1', [kelasId]);
+        await pool.query('DELETE FROM kelas WHERE id = $1', [kelasId]);
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menghapus rombel: " + err.message);
+    }
+});
+
+app.post('/api/kelas/hapus-semua', async (req, res) => {
+    try {
+        await pool.query('UPDATE users SET kelas_id = NULL');
+        await pool.query('UPDATE siswa SET kelas_id = NULL');
+        await pool.query('DELETE FROM kelas');
+        await pool.query("ALTER SEQUENCE kelas_id_seq RESTART WITH 1");
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menghapus semua rombel: " + err.message);
+    }
+});
+
+// ---------------- API GURU & SISWA ---------------- //
+
+app.post('/api/guru/tambah', async (req, res) => {
+    const { nama, username, password, kelas_id } = req.body;
+    try {
+        if (!nama || !username || !password) return res.status(400).send("Semua kolom wajib diisi.");
+        const parsedKelasId = kelas_id ? parseInt(kelas_id) : null;
+        await pool.query(
+            'INSERT INTO users (nama, username, password, role, kelas_id) VALUES ($1, $2, $3, $4, $5)',
+            [nama.trim(), username.trim(), password.trim(), 'WALI_KELAS', parsedKelasId]
+        );
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menambah guru: " + err.message);
+    }
+});
+
+app.post('/api/guru/edit/:id', async (req, res) => {
+    const guruId = parseInt(req.params.id);
+    const { nama, username, password, kelas_id } = req.body;
+
+    try {
+        if (!nama || !username) return res.status(400).send("Nama dan Username wajib diisi.");
+        const parsedKelasId = kelas_id ? parseInt(kelas_id) : null;
+
+        if (password && password.trim() !== '') {
+            await pool.query(
+                `UPDATE users SET nama = $1, username = $2, password = $3, kelas_id = $4 WHERE id = $5`,
+                [nama.trim(), username.trim(), password.trim(), parsedKelasId, guruId]
+            );
+        } else {
+            await pool.query(
+                `UPDATE users SET nama = $1, username = $2, kelas_id = $3 WHERE id = $4`,
+                [nama.trim(), username.trim(), parsedKelasId, guruId]
+            );
+        }
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal memperbarui data guru: " + err.message);
+    }
+});
+
+app.post('/api/guru/hapus/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM users WHERE id = $1 AND role != $2', [parseInt(req.params.id), 'ADMIN']);
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menghapus guru: " + err.message);
+    }
+});
+
+app.post('/api/siswa/tambah', async (req, res) => {
+    const { nama, nomor_wa_ortu, kelas_id } = req.body;
+    try {
+        if (!nama) return res.status(400).send("Nama siswa wajib diisi.");
+        const parsedKelasId = kelas_id ? parseInt(kelas_id) : null;
+        await pool.query(
+            'INSERT INTO siswa (nama, nomor_wa_ortu, kelas_id) VALUES ($1, $2, $3)',
+            [nama.trim(), nomor_wa_ortu ? nomor_wa_ortu.trim() : '', parsedKelasId]
+        );
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menambah siswa: " + err.message);
+    }
+});
+
+app.post('/api/siswa/edit/:id', async (req, res) => {
+    const siswaId = parseInt(req.params.id);
+    const { nama, nomor_wa_ortu, kelas_id } = req.body;
+
+    try {
+        if (!nama) return res.status(400).send("Nama siswa wajib diisi.");
+        const parsedKelasId = kelas_id ? parseInt(kelas_id) : null;
+
+        await pool.query(
+            `UPDATE siswa SET nama = $1, nomor_wa_ortu = $2, kelas_id = $3 WHERE id = $4`,
+            [nama.trim(), nomor_wa_ortu ? nomor_wa_ortu.trim() : '', parsedKelasId, siswaId]
+        );
+
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal memperbarui data siswa: " + err.message);
+    }
+});
+
+app.post('/api/siswa/hapus/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM siswa WHERE id = $1', [parseInt(req.params.id)]);
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        return res.status(500).send("Gagal menghapus siswa: " + err.message);
+    }
+});
+
+app.post('/api/siswa/hapus-semua', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM absensi');
+        await pool.query('DELETE FROM siswa');
+        await pool.query('UPDATE users SET kelas_id = NULL');
+        await pool.query('DELETE FROM kelas');
+        await pool.query("ALTER SEQUENCE siswa_id_seq RESTART WITH 1");
+        await pool.query("ALTER SEQUENCE kelas_id_seq RESTART WITH 1");
+
+        return res.redirect(`/admin?userId=${req.session.userId || 1}`);
+    } catch (err) {
+        console.error("Gagal reset data:", err);
+        return res.status(500).send("Gagal melakukan reset total: " + err.message);
+    }
+});
+
+// ---------------- API IMPOR EXCEL SISWA DAPODIK ---------------- //
+
+app.post('/api/siswa/import-excel', upload.single('file_excel'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "Berkas Excel/CSV wajib diunggah!" });
+        }
+
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" });
+
+        if (sheetData.length === 0) {
+            return res.status(400).json({ success: false, message: "Berkas Excel kosong atau tidak terbaca." });
+        }
+
+        let totalBerhasil = 0;
+
+        for (const row of sheetData) {
+            let namaSiswa = "";
+            let nomorWa = "";
+            let namaKelas = null;
+
+            Object.keys(row).forEach(key => {
+                const cleanKey = key.toString().toLowerCase().trim();
+                const val = row[key] ? row[key].toString().trim() : "";
+
+                if (cleanKey.includes('nama') || cleanKey.includes('peserta didik') || cleanKey.includes('siswa')) {
+                    if (!namaSiswa && val) namaSiswa = val;
+                }
+                if (cleanKey.includes('hp') || cleanKey.includes('wa') || cleanKey.includes('telepon') || cleanKey.includes('seluler') || cleanKey.includes('kontak')) {
+                    if (!nomorWa && val) nomorWa = val;
+                }
+                if (cleanKey.includes('rombel') || cleanKey.includes('kelas') || cleanKey.includes('rombongan') || cleanKey.includes('tingkat')) {
+                    if (!namaKelas && val) namaKelas = val;
+                }
+            });
+
+            if (namaSiswa && namaSiswa.length > 1) {
+                let kelasId = null;
+
+                if (namaKelas) {
+                    const cleanNamaKelas = namaKelas.toString().replace(/\s+/g, ' ').trim();
+                    let kRes = await pool.query('SELECT id FROM kelas WHERE LOWER(TRIM(nama_kelas)) = LOWER($1)', [cleanNamaKelas]);
+                    
+                    if (kRes.rows.length > 0) {
+                        kelasId = kRes.rows[0].id;
+                    } else {
+                        let newKRes = await pool.query('INSERT INTO kelas (nama_kelas) VALUES ($1) RETURNING id', [cleanNamaKelas]);
+                        kelasId = newKRes.rows[0].id;
+                    }
+                }
+
+                await pool.query(
+                    `INSERT INTO siswa (nama, nomor_wa_ortu, kelas_id) VALUES ($1, $2, $3)`,
+                    [namaSiswa, nomorWa, kelasId]
+                );
+                totalBerhasil++;
+            }
+        }
+
+        if (totalBerhasil === 0) {
+            return res.json({
+                success: false,
+                message: "Gagal membaca data. Pastikan ada kolom 'Nama' atau 'Nama Siswa' di baris pertama Excel."
             });
         }
 
-        function bukaModalEditGuru(btn) {
-            const id = btn.getAttribute('data-id');
-            const nama = decodeURIComponent(btn.getAttribute('data-nama'));
-            const username = decodeURIComponent(btn.getAttribute('data-username'));
-            const kelasId = btn.getAttribute('data-kelas');
+        return res.json({
+            success: true,
+            message: `Berhasil mengimpor ${totalBerhasil} data siswa dari Dapodik!`
+        });
 
-            document.getElementById('formEditGuru').action = `/api/guru/edit/${id}`;
-            document.getElementById('editNamaGuru').value = nama;
-            document.getElementById('editUsernameGuru').value = username;
-            document.getElementById('editPasswordGuru').value = '';
-            document.getElementById('editKelasGuru').value = kelasId;
-            document.getElementById('modalEditGuru').classList.remove('hidden');
+    } catch (err) {
+        console.error("Import Excel Error:", err);
+        return res.status(500).json({ success: false, message: "Gagal memproses berkas: " + err.message });
+    }
+});
+
+// ---------------- API WA GATEWAY ---------------- //
+
+app.get('/api/start-wa', async (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId || 1;
+    connectToWhatsApp(userId);
+    res.json({ success: true, message: 'Inisialisasi WhatsApp dimulai...' });
+});
+
+app.get('/api/request-pairing', async (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId || 1;
+    const phone = req.query.phone;
+
+    if (!phone) {
+        return res.status(400).json({ success: false, message: 'Nomor WhatsApp wajib diisi!' });
+    }
+
+    connectToWhatsApp(userId, phone);
+    res.json({ success: true, message: 'Mempersiapkan kode tautan...' });
+});
+
+app.get('/api/wa-status', (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId || 1;
+    res.json({
+        success: true,
+        statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
+        qrCodeWA: qrCodes[userId] || null,
+        pairingCode: pairingCodes[userId] || null
+    });
+});
+
+app.get('/api/reset-wa', async (req, res) => {
+    const userId = parseInt(req.query.userId) || req.session.userId || 1;
+    if (reconnectTimers[userId]) {
+        clearTimeout(reconnectTimers[userId]);
+        delete reconnectTimers[userId];
+    }
+    if (waSessions[userId]) {
+        try { waSessions[userId].end(undefined); } catch (e) {}
+        delete waSessions[userId];
+    }
+    delete qrCodes[userId];
+    delete pairingCodes[userId];
+    waStatus[userId] = 'BELUM_TERHUBUNG';
+
+    await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
+    res.json({ success: true, message: 'Sesi WA Berhasil Direset!' });
+});
+
+app.post('/api/scan', async (req, res) => {
+    const { siswa_id, scanned_by, type } = req.body;
+    if (!siswa_id) return res.status(400).json({ success: false, message: "Kode QR tidak terdeteksi." });
+
+    try {
+        const parsedSiswaId = parseInt(siswa_id);
+        const parsedScannedBy = parseInt(scanned_by) || 1;
+        const scanType = (type && type.toUpperCase() === 'PULANG') ? 'PULANG' : 'MASUK';
+
+        const siswaRes = await pool.query(`
+            SELECT s.id, s.nama, s.nomor_wa_ortu, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            FROM siswa s LEFT JOIN kelas k ON s.kelas_id = k.id WHERE s.id = $1
+        `, [parsedSiswaId]);
+
+        if (siswaRes.rows.length === 0) {
+            return res.status(404).json({ success: false, message: `ID Siswa #${siswa_id} Tidak Terdaftar!` });
         }
 
-        function tutupModalEditGuru() {
-            document.getElementById('modalEditGuru').classList.add('hidden');
+        const siswa = siswaRes.rows[0];
+
+        const now = new Date();
+        const jamWib = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':') + ' WIB';
+        const tglWib = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+        await pool.query(
+            `INSERT INTO absensi (siswa_id, status, type, scanned_by, waktu) VALUES ($1, 'HADIR', $2, $3, NOW() AT TIME ZONE 'Asia/Jakarta')`,
+            [siswa.id, scanType, parsedScannedBy]
+        );
+
+        const modePengirim = await getModePengirim();
+        let waClient = null;
+
+        if (modePengirim === 'TERPUSAT') {
+            waClient = waSessions[1]; // Sesi Admin
+        } else {
+            waClient = waSessions[parsedScannedBy]; // Sesi Wali Kelas
         }
 
-        function hapusGuru(btn) {
-            const id = btn.getAttribute('data-id');
-            const nama = decodeURIComponent(btn.getAttribute('data-nama'));
+        if (!waClient) {
+            const keys = Object.keys(waSessions);
+            if (keys.length > 0) waClient = waSessions[keys[0]];
+        }
 
-            if (confirm(`Hapus pengguna guru "${nama}"?`)) {
-                const formHapus = document.getElementById('formHapusUmum');
-                formHapus.action = `/api/guru/hapus/${id}`;
-                formHapus.submit();
+        let statusWA = "Notifikasi WhatsApp Tidak Terkirim (Layanan WA Belum Terkoneksi)";
+
+        if (waClient && siswa.nomor_wa_ortu) {
+            let phone = siswa.nomor_wa_ortu.toString().trim().replace(/[^0-9]/g, '');
+            if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+            const formattedJid = phone + '@s.whatsapp.net';
+
+            const namaSekolah = await getNamaSekolah();
+            const judulStatus = scanType === 'PULANG' ? 'PRESENSI KEPULANGAN SISWA' : 'PRESENSI KEHADIRAN SISWA';
+            const detailStatus = scanType === 'PULANG' ? 'telah selesai mengikuti kegiatan belajar dan meninggalkan sekolah' : 'telah tiba di sekolah dan melakukan presensi kehadiran';
+
+            const pesan = `*${namaSekolah.toUpperCase()}*\n` +
+                          `*PEMBERITAHUAN ${judulStatus}*\n` +
+                          `_________________________________________\n\n` +
+                          `Yth. Bapak/Ibu Orang Tua / Wali Murid,\n\n` +
+                          `Diberitahukan bahwa putra/putri Anda ${detailStatus}:\n\n` +
+                          `• Nama Siswa : *${siswa.nama}*\n` +
+                          `• Kelas / Rombel : *${siswa.nama_kelas}*\n` +
+                          `• Waktu Scan : *${jamWib}*\n` +
+                          `• Tanggal : *${tglWib}*\n` +
+                          `• Status : *${scanType === 'PULANG' ? 'PULANG' : 'HADIR'} (Scan Kartu) ✅*\n\n` +
+                          `Terima kasih atas perhatian dan kerja samanya.\n\n` +
+                          `_Pesan otomatis ini dikirim oleh Sistem Presensi Terpadu ${namaSekolah}._`;
+
+            waClient.sendMessage(formattedJid, { text: pesan }).catch(e => console.error("Gagal Mengirim WA:", e.message));
+            statusWA = "Notifikasi WhatsApp Berhasil Dikirimkan ke Wali Murid ✅";
+        }
+
+        return res.json({
+            success: true,
+            message: statusWA,
+            siswa: {
+                id: siswa.id,
+                nama: siswa.nama,
+                nama_kelas: siswa.nama_kelas,
+                waktu: jamWib,
+                type: scanType
             }
+        });
+
+    } catch (err) {
+        console.error("Kesalahan Scan:", err);
+        return res.status(500).json({ success: false, message: "Kendala Sistem: " + err.message });
+    }
+});
+
+// ---------------- API HAPUS RIWAYAT ABSENSI UJI COBA ---------------- //
+app.post('/api/absensi/reset-riwayat', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM absensi');
+        await pool.query('ALTER SEQUENCE absensi_id_seq RESTART WITH 1');
+
+        console.log("🧹 Riwayat absensi uji coba berhasil dibersihkan.");
+
+        const backUrl = req.headers.referer || `/admin?userId=${req.session.userId || 1}`;
+        return res.redirect(backUrl);
+    } catch (err) {
+        console.error("Gagal menghapus riwayat absensi:", err);
+        return res.status(500).send("Gagal membersihkan riwayat absensi: " + err.message);
+    }
+});
+
+// ---------------- FITUR REKAP BULANAN ---------------- //
+
+app.get('/api/absensi/preview', async (req, res) => {
+    const { bulan, tahun, kelas_id } = req.query;
+    if (!bulan || !tahun) return res.status(400).json({ success: false, message: "Bulan dan Tahun wajib diisi." });
+
+    try {
+        let query = `
+            SELECT s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas, COUNT(a.id) AS total_hadir
+            FROM siswa s
+            LEFT JOIN kelas k ON s.kelas_id = k.id
+            LEFT JOIN absensi a ON s.id = a.siswa_id 
+                AND EXTRACT(MONTH FROM a.waktu AT TIME ZONE 'Asia/Jakarta') = $1
+                AND EXTRACT(YEAR FROM a.waktu AT TIME ZONE 'Asia/Jakarta') = $2
+        `;
+        const queryParams = [parseInt(bulan), parseInt(tahun)];
+
+        if (kelas_id && kelas_id !== 'all' && kelas_id !== 'null' && kelas_id !== '') {
+            query += ` WHERE s.kelas_id = $3`;
+            queryParams.push(parseInt(kelas_id));
         }
 
-        function bukaModalEditSiswa(btn) {
-            const id = btn.getAttribute('data-id');
-            const nama = decodeURIComponent(btn.getAttribute('data-nama'));
-            const wa = decodeURIComponent(btn.getAttribute('data-wa'));
-            const kelasId = btn.getAttribute('data-kelas');
+        query += ` GROUP BY s.id, s.nama, k.nama_kelas ORDER BY s.nama ASC`;
 
-            document.getElementById('formEditSiswa').action = `/api/siswa/edit/${id}`;
-            document.getElementById('editNamaSiswa').value = nama;
-            document.getElementById('editWaSiswa').value = wa;
-            document.getElementById('editKelasSiswa').value = kelasId;
-            document.getElementById('modalEditSiswa').classList.remove('hidden');
+        const result = await pool.query(query, queryParams);
+        return res.json({ success: true, data: result.rows });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.get('/api/absensi/export', async (req, res) => {
+    const { bulan, tahun, kelas_id, format } = req.query;
+    if (!bulan || !tahun) return res.status(400).send("Bulan dan Tahun wajib diisi.");
+
+    try {
+        let query = `
+            SELECT s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas, COUNT(a.id) AS total_hadir
+            FROM siswa s
+            LEFT JOIN kelas k ON s.kelas_id = k.id
+            LEFT JOIN absensi a ON s.id = a.siswa_id 
+                AND EXTRACT(MONTH FROM a.waktu AT TIME ZONE 'Asia/Jakarta') = $1
+                AND EXTRACT(YEAR FROM a.waktu AT TIME ZONE 'Asia/Jakarta') = $2
+        `;
+        const queryParams = [parseInt(bulan), parseInt(tahun)];
+
+        if (kelas_id && kelas_id !== 'all' && kelas_id !== 'null' && kelas_id !== '') {
+            query += ` WHERE s.kelas_id = $3`;
+            queryParams.push(parseInt(kelas_id));
         }
 
-        function tutupModalEditSiswa() {
-            document.getElementById('modalEditSiswa').classList.add('hidden');
+        query += ` GROUP BY s.id, s.nama, k.nama_kelas ORDER BY s.nama ASC`;
+
+        const result = await pool.query(query, queryParams);
+        const dataRekap = result.rows;
+        const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"][parseInt(bulan) - 1];
+        const namaSekolah = await getNamaSekolah();
+        const judul = `REKAP PRESENSI SISWA - ${namaBulan.toUpperCase()} ${tahun}`;
+
+        if (format === 'excel') {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Rekap Absensi');
+
+            worksheet.mergeCells('A1:D1');
+            worksheet.getCell('A1').value = namaSekolah.toUpperCase();
+            worksheet.getCell('A1').font = { bold: true, size: 14 };
+            worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+            worksheet.mergeCells('A2:D2');
+            worksheet.getCell('A2').value = judul;
+            worksheet.getCell('A2').font = { bold: true, size: 12 };
+            worksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+            worksheet.addRow([]);
+            const headerRow = worksheet.addRow(['No', 'Nama Siswa', 'Kelas / Rombel', 'Total Kehadiran']);
+            headerRow.font = { bold: true };
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D9EAD3' } };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            dataRekap.forEach((row, idx) => {
+                const r = worksheet.addRow([idx + 1, row.nama_siswa, row.nama_kelas, `${row.total_hadir} Hari`]);
+                r.eachCell(c => c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
+            });
+
+            worksheet.columns = [{ width: 6 }, { width: 30 }, { width: 20 }, { width: 18 }];
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=Rekap_Presensi_${bulan}_${tahun}.xlsx`);
+            return workbook.xlsx.write(res).then(() => res.end());
         }
 
-        function hapusSiswa(btn) {
-            const id = btn.getAttribute('data-id');
-            const nama = decodeURIComponent(btn.getAttribute('data-nama'));
+        if (format === 'word') {
+            const tableRows = [
+                new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph({ text: "No", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ text: "Nama Siswa", bold: true })], width: { size: 45, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ text: "Kelas", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ text: "Total Hadir", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+                    ]
+                }),
+                ...dataRekap.map((row, idx) => new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph((idx + 1).toString())] }),
+                        new TableCell({ children: [new Paragraph(row.nama_siswa)] }),
+                        new TableCell({ children: [new Paragraph(row.nama_kelas)] }),
+                        new TableCell({ children: [new Paragraph(`${row.total_hadir} Hari`)] }),
+                    ]
+                }))
+            ];
 
-            if (confirm(`Hapus data siswa "${nama}"?`)) {
-                const formHapus = document.getElementById('formHapusUmum');
-                formHapus.action = `/api/siswa/hapus/${id}`;
-                formHapus.submit();
-            }
+            const doc = new Document({
+                sections: [{
+                    children: [
+                        new Paragraph({ text: namaSekolah.toUpperCase(), heading: "Heading1", alignment: AlignmentType.CENTER }),
+                        new Paragraph({ text: judul, heading: "Heading2", alignment: AlignmentType.CENTER }),
+                        new Paragraph({ text: "" }),
+                        new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } })
+                    ]
+                }]
+            });
+
+            const buffer = await Packer.toBuffer(doc);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            res.setHeader('Content-Disposition', `attachment; filename=Rekap_Presensi_${bulan}_${tahun}.docx`);
+            return res.send(buffer);
         }
 
-        function bukaSidebar() {
-            document.getElementById('sidebarMenu').classList.remove('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.remove('hidden');
+        if (format === 'pdf') {
+            const doc = new PDFDocument({ margin: 40, size: 'A4' });
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=Rekap_Presensi_${bulan}_${tahun}.pdf`);
+
+            doc.pipe(res);
+            doc.fontSize(14).font('Helvetica-Bold').text(namaSekolah.toUpperCase(), { align: 'center' });
+            doc.fontSize(11).font('Helvetica').text(judul, { align: 'center' });
+            doc.moveDown(1.5);
+
+            let y = doc.y;
+            const startX = 40;
+            const colWidths = [40, 230, 130, 100];
+
+            doc.font('Helvetica-Bold').fontSize(10);
+            doc.text('No', startX, y);
+            doc.text('Nama Siswa', startX + colWidths[0], y);
+            doc.text('Kelas', startX + colWidths[0] + colWidths[1], y);
+            doc.text('Total Hadir', startX + colWidths[0] + colWidths[1] + colWidths[2], y);
+
+            doc.moveTo(startX, y + 15).lineTo(startX + 500, y + 15).stroke();
+            y += 22;
+
+            doc.font('Helvetica').fontSize(9);
+            dataRekap.forEach((row, i) => {
+                if (y > 750) {
+                    doc.addPage();
+                    y = 40;
+                }
+                doc.text((i + 1).toString(), startX, y);
+                doc.text(row.nama_siswa, startX + colWidths[0], y);
+                doc.text(row.nama_kelas, startX + colWidths[0] + colWidths[1], y);
+                doc.text(`${row.total_hadir} Hari`, startX + colWidths[0] + colWidths[1] + colWidths[2], y);
+                y += 18;
+            });
+
+            doc.end();
+            return;
         }
 
-        function tutupSidebar() {
-            document.getElementById('sidebarMenu').classList.add('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.add('hidden');
-        }
-    </script>
+        return res.status(400).send("Format ekspor tidak valid.");
 
-    <footer class="bg-slate-900 text-white border-t border-slate-800 py-3 text-center text-[11px]">
-        <p>© <%= namaSekolah %>. Seluruh Hak Cipta Dilindungi.</p>
-        <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-200">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-amber-400 font-medium hover:underline">0823-7172-9760</a></p>
-    </footer>
-</body>
-</html>
+    } catch (err) {
+        console.error("Export Error:", err);
+        res.status(500).send("Gagal mengekspor data: " + err.message);
+    }
+});
+
+// PING ENDPOINT UNTUK UPTIMEROBOT
+app.get('/ping', (req, res) => res.send('OK'));
+
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server Presensi Aktif di Port ${PORT}`));
