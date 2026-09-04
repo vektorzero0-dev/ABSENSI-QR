@@ -134,14 +134,14 @@
       <a href="/admin?userId=<%= userId %>" class="flex items-center gap-3 p-3 font-semibold bg-blue-50 text-blue-900 rounded-xl">
         <i class="fa-solid fa-house text-blue-700"></i> Dashboard Utama
       </a>
-      <a href="#section-pengaturan" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-solid fa-gear text-amber-600"></i> Pengaturan Sistem
-      </a>
       <a href="/scan?userId=<%= userId %>" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-qrcode text-emerald-600"></i> Pemindai QR Presensi
       </a>
       <a href="/admin/cetak-kartu" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-address-card text-purple-600"></i> Cetak Kartu Siswa
+      </a>
+      <a href="#section-pengaturan" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
+        <i class="fa-solid fa-sliders text-amber-600"></i> Pengaturan Sistem
       </a>
       <a href="#section-dapodik" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-file-excel text-emerald-600"></i> Impor Excel Dapodik
@@ -208,38 +208,6 @@
             </div>
         </div>
 
-        <!-- FORM PENGATURAN SISTEM (NAMA SEKOLAH & MODE PENGIRIM WA) -->
-        <div id="section-pengaturan" class="card-pro card-amber-theme p-5 mb-6">
-            <div class="flex items-center gap-3 mb-3 border-b border-amber-200/60 pb-2 relative z-10">
-                <div class="bg-amber-600 text-white p-2.5 rounded-xl shadow-md">
-                    <i class="fa-solid fa-gear text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Pengaturan Identitas Sekolah & Notifikasi WhatsApp</h3>
-                    <p class="text-[11px] text-slate-600">Sesuaikan nama instansi dan tentukan pengirim notifikasi pesan presensi.</p>
-                </div>
-            </div>
-
-            <form action="/api/pengaturan" method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-700 mb-1">Nama Sekolah / Instansi</label>
-                    <input type="text" name="nama_sekolah" value="<%= namaSekolah %>" required class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-700 mb-1">Mode Pengirim Notifikasi WhatsApp</label>
-                    <select name="mode_pengirim_wa" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-600">
-                        <option value="WALI_KELAS" <%= modePengirim === 'WALI_KELAS' ? 'selected' : '' %>>Sesuai Akun Login Wali Kelas Masing-masing</option>
-                        <option value="TERPUSAT" <%= modePengirim === 'TERPUSAT' ? 'selected' : '' %>>Terpusat Menggunakan WA Admin (ID #1)</option>
-                    </select>
-                </div>
-                <div class="sm:col-span-2 text-end">
-                    <button type="submit" class="btn-interactive bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition border border-amber-800 shadow-md">
-                        <i class="fa-solid fa-floppy-disk mr-1"></i> Simpan Pengaturan
-                    </button>
-                </div>
-            </form>
-        </div>
-
         <!-- METRIC SUMMARY CARDS WITH INDIVIDUAL COLOR THEMES -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div class="card-pro card-blue-theme p-4 flex items-center justify-between">
@@ -271,6 +239,40 @@
                     <i class="fa-solid fa-school text-lg"></i>
                 </div>
             </div>
+        </div>
+
+        <!-- KOTAK PENGATURAN SISTEM (AMBER THEME) -->
+        <div id="section-pengaturan" class="card-pro card-amber-theme p-5 mb-6">
+            <div class="flex items-center gap-3 mb-3 border-b border-amber-200/60 pb-2 relative z-10">
+                <div class="bg-amber-600 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-sliders text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Pengaturan Identitas Sekolah & Mode WA Gateway</h3>
+                    <p class="text-[11px] text-slate-600">Konfigurasi nama sekolah dan pilihlah akun pengirim notifikasi WhatsApp terpusat atau per wali kelas.</p>
+                </div>
+            </div>
+
+            <form action="/api/pengaturan" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Nama Instansi Sekolah</label>
+                    <input type="text" name="nama_sekolah" value="<%= namaSekolah %>" required placeholder="Contoh: UPTD SD NEGERI 1 KARYA MULYA SARI" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Mode Pengirim WhatsApp</label>
+                    <select name="mode_pengirim_wa" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
+                        <option value="WALI_KELAS" <%= modePengirim === 'WALI_KELAS' ? 'selected' : '' %>>📲 Setiap Nomor WA Wali Kelas (Masing-masing)</option>
+                        <option value="TERPUSAT" <%= modePengirim === 'TERPUSAT' ? 'selected' : '' %>>🏢 Terpusat (Nomor WA Admin Sekolah Utama)</option>
+                    </select>
+                </div>
+
+                <div class="flex items-end">
+                    <button type="submit" class="btn-interactive w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-md flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan Konfigurasi
+                    </button>
+                </div>
+            </form>
         </div>
 
         <!-- KOTAK IMPOR DAPODIK (EMERALD THEME) -->
