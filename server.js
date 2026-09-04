@@ -326,16 +326,28 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId;
     if (!userId) return res.redirect('/');
 
-    // 1. Ambil namaSekolah (beri nilai default agar tidak 'undefined')
+    // 1. Ambil Pengaturan Global dari Database (dengan default value)
     const namaSekolah = await getPengaturan('NAMA_SEKOLAH', 'SD NEGERI PRESENSI DIGITAL');
+    const izinkanGuruPilihWA = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
+    const modePengirimWAAdmin = await getPengaturan('MODE_PENGIRIM_WA', 'ADMIN');
 
     try {
-        const userRes = await pool.query(`
-            SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
-            FROM users u
-            LEFT JOIN kelas k ON u.kelas_id = k.id
-            WHERE u.id = $1
-        `, [userId]);
+        let userRes;
+        try {
+            userRes = await pool.query(`
+                SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(u.mode_pengirim_wa, 'SENDIRI') AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+                FROM users u
+                LEFT JOIN kelas k ON u.kelas_id = k.id
+                WHERE u.id = $1
+            `, [userId]);
+        } catch (e) {
+            userRes = await pool.query(`
+                SELECT u.id, u.nama, u.role, u.kelas_id, 'SENDIRI' AS mode_pengirim_wa, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+                FROM users u
+                LEFT JOIN kelas k ON u.kelas_id = k.id
+                WHERE u.id = $1
+            `, [userId]);
+        }
 
         if (userRes.rows.length === 0) return res.redirect('/');
         
@@ -343,7 +355,7 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
         userRaw.nama = bersihkanGelar(userRaw.nama);
 
         let siswaQuery = `
-            SELECT s.id, s.nama, s.nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            SELECT s.id, s.nama, COALESCE(s.nomor_wa_ortu, '') AS nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM siswa s 
             LEFT JOIN kelas k ON s.kelas_id = k.id
         `;
@@ -393,7 +405,7 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
 
         req.session.userId = userId;
 
-        // 2. Kirim variabel 'namaSekolah' di res.render
+        // 2. Oper Variabel ke EJS (Termasuk variabel yang error tadi)
         res.render('walikelas-dashboard', {
             user: userRaw,
             siswaList: siswaData,
@@ -401,7 +413,9 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
             userId: userId,
             statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
             qrCodeWA: qrCodes[userId] || null,
-            namaSekolah: namaSekolah // <-- INI YANG MEMPERBAIKI KESALAHAN EJS
+            namaSekolah: namaSekolah,
+            izinkanGuruPilihWA: izinkanGuruPilihWA,
+            modePengirimWAAdmin: modePengirimWAAdmin
         });
     } catch (err) {
         console.error("Dashboard Error User #" + userId + ":", err);
