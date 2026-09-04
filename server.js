@@ -723,7 +723,10 @@ app.get('/api/reset-wa', async (req, res) => {
     delete pairingCodes[userId];
     waStatus[userId] = 'BELUM_TERHUBUNG';
 
-    await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
+    const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
+    if (fs.existsSync(authFolder)) {
+        fs.rmSync(authFolder, { recursive: true, force: true });
+    }
     res.json({ success: true, message: 'Sesi WA Berhasil Direset!' });
 });
 
