@@ -325,63 +325,75 @@ app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
 app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId;
     if (!userId) return res.redirect('/');
-    const namaSekolah = await getPengaturan('NAMA_SEKOLAH', 'SD NEGERI PRESENSI DIGITAL');
 
     try {
-        const userRes = await pool.query(`
-            SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
-            FROM users u
-            LEFT JOIN kelas k ON u.kelas_id = k.id
-            WHERE u.id = $1
-        `, [userId]);
+        // Query User dengan Fallback jika kolom kelas_id belum ada
+        let userRes;
+        try {
+            userRes = await pool.query(`
+                SELECT u.id, u.nama, u.role, u.kelas_id, COALESCE(k.nama_kelas, 'Guru Mata Pelajaran (Semua Kelas)') AS nama_kelas
+                FROM users u
+                LEFT JOIN kelas k ON u.kelas_id = k.id
+                WHERE u.id = $1
+            `, [userId]);
+        } catch (dbErr) {
+            console.error("⚠️ Fallback Query User:", dbErr.message);
+            userRes = await pool.query(`
+                SELECT u.id, u.nama, u.role, NULL as kelas_id, 'Guru Mata Pelajaran (Semua Kelas)' AS nama_kelas
+                FROM users u WHERE u.id = $1
+            `, [userId]);
+        }
 
         if (userRes.rows.length === 0) return res.redirect('/');
         
         const userRaw = userRes.rows[0];
         userRaw.nama = bersihkanGelar(userRaw.nama);
 
-        let siswaQuery = `
-            SELECT s.id, s.nama, s.nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
-            FROM siswa s 
-            LEFT JOIN kelas k ON s.kelas_id = k.id
-        `;
-        const queryParamsSiswa = [];
-
-        if (userRaw.kelas_id) {
-            siswaQuery += ` WHERE s.kelas_id = $1`;
-            queryParamsSiswa.push(parseInt(userRaw.kelas_id));
-        }
-
-        siswaQuery += ` ORDER BY s.nama ASC`;
-        const siswaRes = await pool.query(siswaQuery, queryParamsSiswa);
-
-        let absensiQuery;
+        // Query Siswa dengan Fallback
+        let siswaRes;
         try {
-            absensiQuery = `
-                SELECT a.id, a.waktu, COALESCE(a.jenis_absen, 'DATANG') AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            let siswaQuery = `
+                SELECT s.id, s.nama, COALESCE(s.nomor_wa_ortu, '') as nomor_wa_ortu, s.kelas_id, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+                FROM siswa s 
+                LEFT JOIN kelas k ON s.kelas_id = k.id
+            `;
+            const queryParamsSiswa = [];
+
+            if (userRaw.kelas_id) {
+                siswaQuery += ` WHERE s.kelas_id = $1`;
+                queryParamsSiswa.push(parseInt(userRaw.kelas_id));
+            }
+
+            siswaQuery += ` ORDER BY s.nama ASC`;
+            siswaRes = await pool.query(siswaQuery, queryParamsSiswa);
+        } catch (dbErr) {
+            console.error("⚠️ Fallback Query Siswa:", dbErr.message);
+            siswaRes = await pool.query(`SELECT s.id, s.nama, '' as nomor_wa_ortu, '-' AS nama_kelas FROM siswa s ORDER BY s.nama ASC`);
+        }
+
+        // Query Absensi dengan Fallback
+        let absensiRes;
+        try {
+            let absensiQuery = `
+                SELECT a.id, a.waktu, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
                 FROM absensi a 
                 JOIN siswa s ON a.siswa_id = s.id 
                 LEFT JOIN kelas k ON s.kelas_id = k.id 
                 WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
             `;
-        } catch (e) {
-            absensiQuery = `
-                SELECT a.id, a.waktu, 'DATANG' AS jenis_absen, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
-                FROM absensi a 
-                JOIN siswa s ON a.siswa_id = s.id 
-                LEFT JOIN kelas k ON s.kelas_id = k.id 
-                WHERE DATE(a.waktu AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE
-            `;
-        }
+            const queryParamsAbsensi = [];
 
-        const queryParamsAbsensi = [];
-        if (userRaw.kelas_id) {
-            absensiQuery += ` AND s.kelas_id = $1`;
-            queryParamsAbsensi.push(parseInt(userRaw.kelas_id));
-        }
+            if (userRaw.kelas_id) {
+                absensiQuery += ` AND s.kelas_id = $1`;
+                queryParamsAbsensi.push(parseInt(userRaw.kelas_id));
+            }
 
-        absensiQuery += ` ORDER BY a.waktu DESC`;
-        const absensiRes = await pool.query(absensiQuery, queryParamsAbsensi);
+            absensiQuery += ` ORDER BY a.waktu DESC`;
+            absensiRes = await pool.query(absensiQuery, queryParamsAbsensi);
+        } catch (dbErr) {
+            console.error("⚠️ Fallback Query Absensi:", dbErr.message);
+            absensiRes = { rows: [] };
+        }
 
         const absensiFormatted = absensiRes.rows.map(row => {
             const dateObj = new Date(row.waktu);
@@ -408,11 +420,10 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
             absensiHariIni: absensiFormatted,
             userId: userId,
             statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
-            qrCodeWA: qrCodes[userId] || null,
-            namaSekolah
+            qrCodeWA: qrCodes[userId] || null
         });
     } catch (err) {
-        console.error("Dashboard Error User #" + userId + ":", err);
+        console.error("❌ Dashboard Wali Error (User #" + userId + "):", err);
         res.status(500).send("Kesalahan Database: " + err.message);
     }
 });
