@@ -3,11 +3,11 @@ const session = require('express-session');
 const path = require('path');
 const pino = require('pino');
 const makeWASocket = require('@whiskeysockets/baileys').default;
-const { DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
+const fs = require('fs');
 const pool = require('./db');
-const useNeonAuthState = require('./waAuth'); // Menggunakan waAuth.js milikmu
 
 // Package Import & Upload Excel
 const multer = require('multer');
@@ -126,30 +126,28 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         delete qrCodes[userId];
         delete pairingCodes[userId];
 
-        const { state, saveCreds } = await useNeonAuthState(pool, `user_${userId}`);
+        const { state, saveCreds } = await getAuthState(userId);
         const { version } = await fetchLatestBaileysVersion();
 
         console.log(`⚡ [User #${userId}] Inisialisasi WA Socket (Baileys v${version.join('.')})...`);
 
         const sock = makeWASocket({
-    logger: pino({ level: 'silent' }),
-    auth: state,
-    printQRInTerminal: false,
-    // Gunakan signature Chrome Desktop yang stabil
-    browser: ["Mac OS", "Chrome", "121.0.6167.85"]
-});
+            logger: pino({ level: 'silent' }),
+            auth: state,
+            printQRInTerminal: false,
+            browser: ["Ubuntu", "Chrome", "120.0.0.0"],
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 60000,
+            keepAliveIntervalMs: 25000,
+            qrTimeout: 45000,
+            syncFullHistory: false
+        });
 
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
 
-        let pairingRequested = false;
-
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-
             // Meminta Pairing Code saat koneksi socket dibuka/siap
-            if (phoneNumber && !sock.authState.creds.registered && !pairingRequested) {
-                pairingRequested = true;
+            if (phoneNumber && !sock.authState.creds.registered) {
                 setTimeout(async () => {
                     try {
                         let cleanPhone = phoneNumber.toString().replace(/[^0-9]/g, '');
@@ -164,9 +162,11 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                         console.error("Gagal Request Pairing Code:", pErr.message);
                         waStatus[userId] = 'ERROR_PAIRING';
                     }
-                }, 2000);
+                }, 5000);
             }
-
+            sock.ev.on('connection.update', async (update) => {
+                 const { connection, lastDisconnect, qr } = update;
+                
             if (qr && !phoneNumber && !sock.authState.creds.registered) {
                 try {
                     qrCodes[userId] = await generateQRDataURL(qr);
@@ -194,34 +194,34 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
             }
 
             if (connection === 'close') {
-    const statusCode = lastDisconnect?.error?.output?.statusCode;
-    const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                // Hanya hapus sesi jika di-logout resmi dari HP (401)
+                const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
-    console.log(`⚠️ [User #${userId}] WA Terputus. Status Code: ${statusCode}`);
+                console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
+                waStatus[userId] = 'TERPUTUS';
+                delete waSessions[userId];
 
-    // JIKA SEDANG MENUNGGU PAIRING / SCAN, JANGAN LANGSUNG RECONNECT SUPAYA KODE TAHAN LAMA
-    if (waStatus[userId] === 'MENUNGGU_PAIRING_CODE' || waStatus[userId] === 'MENUNGGU_SCAN') {
-        console.log(`⏳ Menunggu input pengguna di HP, menahan auto-reconnect...`);
-        return; 
-    }
-
-    waStatus[userId] = 'TERPUTUS';
-    delete waSessions[userId];
-
-    if (!isLoggedOut) {
-        if (!reconnectTimers[userId]) {
-            reconnectTimers[userId] = setTimeout(() => {
-                delete reconnectTimers[userId];
-                connectToWhatsApp(userId);
-            }, 10000); // Naikkan jeda reconnect jadi 10 detik agar tidak tumpuk
-        }
-    } else {
-        delete qrCodes[userId];
-        delete pairingCodes[userId];
-        await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
-    }
-}
-});
+                if (!isLoggedOut) {
+                    // Beri jeda 8 detik agar tidak looping kedap-kedip
+                    console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
+                    if (!reconnectTimers[userId]) {
+                        reconnectTimers[userId] = setTimeout(() => {
+                            delete reconnectTimers[userId];
+                            connectToWhatsApp(userId);
+                        }, 8000);
+                    }
+                } else {
+                    console.log(`🚪 User #${userId} Logged Out. Menghapus folder sesi lokal...`);
+                    delete qrCodes[userId];
+                    delete pairingCodes[userId];
+                    const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
+                    if (fs.existsSync(authFolder)) {
+                        fs.rmSync(authFolder, { recursive: true, force: true });
+                    }
+                }
+            }
+        });
     } catch (err) {
         console.error(`❌ WA Connect Error User #${userId}:`, err.message);
         waStatus[userId] = 'ERROR';
