@@ -64,7 +64,9 @@ async function getNamaSekolah() {
     try {
         const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = 'nama_sekolah'");
         if (res.rows.length > 0 && res.rows[0].nilai) return res.rows[0].nilai;
-    } catch (err) {}
+    } catch (err) {
+        console.error("Gagal mengambil nama_sekolah:", err.message);
+    }
     return "Nama Sekolah";
 }
 
@@ -72,8 +74,10 @@ async function getModePengirim() {
     try {
         const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = 'mode_pengirim_wa'");
         if (res.rows.length > 0 && res.rows[0].nilai) return res.rows[0].nilai;
-    } catch (err) {}
-    return "WALI_KELAS"; // Default: WALI_KELAS atau TERPUSAT
+    } catch (err) {
+        console.error("Gagal mengambil mode_pengirim_wa:", err.message);
+    }
+    return "WALI_KELAS";
 }
 
 // ----------------- HYBRID AUTH STATE (LOKAL AUTH FOLDER) ----------------- //
