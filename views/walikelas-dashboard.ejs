@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Wali Kelas - <%= namaSekolah %></title>
     
-    <!-- CSS Tailwind (Pengganti Script CDN agar konsol bersih) & FontAwesome -->
+    <!-- CSS Tailwind & FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
@@ -115,7 +114,7 @@
 </nav>
 
 <!-- SIDEBAR SLIDE WALI KELAS -->
-<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 -translate-x-full flex flex-col justify-between border-r border-slate-200">
+<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 transform -translate-x-full flex flex-col justify-between border-r border-slate-200">
   <div>
     <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
       <h5 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
@@ -159,6 +158,7 @@
 
     <!-- HEADER RESMI SEKOLAH BERANIMASI -->
     <header class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-lg border-b-4 border-emerald-500 relative overflow-hidden">
+        
         <div class="absolute -top-12 left-1/3 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl animate-glow pointer-events-none"></div>
         <div class="absolute -bottom-10 right-10 w-36 h-36 bg-amber-400/20 rounded-full blur-3xl animate-glow pointer-events-none" style="animation-delay: 2.5s;"></div>
 
@@ -216,7 +216,7 @@
 
             <% if (typeof modePengirimWAAdmin !== 'undefined' && modePengirimWAAdmin === 'ADMIN' && typeof izinkanGuruPilihWA !== 'undefined' && izinkanGuruPilihWA === 'TIDAK') { %>
                 <div class="bg-blue-50 border border-blue-200 text-blue-900 p-3 rounded-xl text-xs relative z-10">
-                    <i class="fa-solid fa-circle-info mr-1 text-blue-600"></i> Notifikasi WhatsApp diatur secara terpusat melalui akun <strong>ADMIN SEKOLAH</strong>.
+                    <i class="fa-solid fa-circle-info mr-1 text-blue-600"></i> Notifikasi WhatsApp diatur terpusat oleh <strong>ADMIN SEKOLAH</strong>. Anda tidak perlu memindai perangkat WA secara mandiri.
                 </div>
             <% } else { %>
                 <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto relative z-10">
@@ -534,13 +534,19 @@
     <!-- SCRIPT CONTROL SIDEBAR PURE JAVASCRIPT -->
     <script>
         function bukaSidebar() {
-            document.getElementById('sidebarMenu').classList.remove('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.remove('hidden');
+            const sidebar = document.getElementById('sidebarMenu');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
         }
 
         function tutupSidebar() {
-            document.getElementById('sidebarMenu').classList.add('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.add('hidden');
+            const sidebar = document.getElementById('sidebarMenu');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
         }
 
         const currentUserId = "<%= userId %>";
