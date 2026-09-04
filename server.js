@@ -94,6 +94,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         const sock = makeWASocket({
             logger: pino({ level: 'silent' }),
             auth: state,
+            version: [2, 3000, 1015901307],
             printQRInTerminal: false,
             browser: ["Ubuntu", "Chrome", "120.0.0.0"],
             connectTimeoutMs: 60000,
