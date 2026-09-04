@@ -77,7 +77,8 @@ async function getModePengirim() {
         console.error("Gagal mengambil mode_pengirim_wa:", err.message);
     }
     return "WALI_KELAS";
-    
+}
+
 // ----------------- HYBRID AUTH STATE (LOKAL AUTH FOLDER) ----------------- //
 
 async function getAuthState(userId) {
@@ -210,36 +211,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 }
 
 // ---------------- ROUTES HALAMAN ---------------- //
-
-app.get('/', async (req, res) => {
-    const namaSekolah = await getNamaSekolah();
-    res.render('login', { error: null, namaSekolah });
- });
-
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.' });
-
-        const result = await pool.query(
-            'SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
-            [username.trim(), password.trim()]
-        );
-
-        if (result.rows.length === 0) return res.render('login', { error: 'Username atau kata sandi tidak valid.' });
-
-        const user = result.rows[0];
-        req.session.userId = user.id;
-
-        if (user.role === 'ADMIN') {
-            return res.redirect(`/admin?userId=${user.id}`);
-        } else {
-            return res.redirect(`/wali?userId=${user.id}`);
-        }
-    } catch (err) {
-        return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message });
-    }
-});
 
 app.get('/', async (req, res) => {
     const namaSekolah = await getNamaSekolah();
@@ -741,22 +712,6 @@ app.get('/api/reset-wa', async (req, res) => {
     res.json({ success: true, message: 'Sesi WA Berhasil Direset!' });
 });
 
-
-// ---------------- API HAPUS RIWAYAT ABSENSI UJI COBA ---------------- //
-app.post('/api/absensi/reset-riwayat', async (req, res) => {
-    try {
-        await pool.query('DELETE FROM absensi');
-        await pool.query('ALTER SEQUENCE absensi_id_seq RESTART WITH 1');
-
-        console.log("🧹 Riwayat absensi uji coba berhasil dibersihkan.");
-
-        const backUrl = req.headers.referer || `/admin?userId=${req.session.userId || 1}`;
-        return res.redirect(backUrl);
-    } catch (err) {
-        console.error("Gagal menghapus riwayat absensi:", err);
-        return res.status(500).send("Gagal membersihkan riwayat absensi: " + err.message);
-    }
-});
 app.post('/api/scan', async (req, res) => {
     const { siswa_id, scanned_by, type } = req.body;
     if (!siswa_id) return res.status(400).json({ success: false, message: "Kode QR tidak terdeteksi." });
