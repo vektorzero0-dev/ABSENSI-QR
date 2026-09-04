@@ -701,10 +701,8 @@ app.get('/api/request-pairing', async (req, res) => {
 });
 
 app.get('/api/wa-status', (req, res) => {
-    try {
         const userId = parseInt(req.query.userId) || req.session.userId || 1;
-        
-        return res.json({
+        res.json({
             success: true,
             statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
             qrCodeWA: qrCodes[userId] || null,
