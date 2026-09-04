@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cetak Kartu Presensi Siswa - <%= namaSekolah %></title>
+    <title>Cetak Kartu Presensi Siswa - UPTD SD NEGERI 1 KARYA MULYA SARI</title>
     
+    <!-- CSS Tailwind & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -13,6 +14,7 @@
 
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
 
+        /* LATAR BELAKANG TERANG DENGAN GRADASI BERGERAK & MOTIF HALUS */
         .bg-light-animated {
             background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
             background-size: 400% 400%;
@@ -29,16 +31,19 @@
             100% { background-position: 0% 50%; }
         }
 
+        /* Scrollbar Halus */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
+        /* BOLA CAHAYA ANIMASI HEADER */
         @keyframes pulseGlow {
             0%, 100% { opacity: 0.3; transform: scale(1); }
             50% { opacity: 0.7; transform: scale(1.2); }
         }
         .animate-glow { animation: pulseGlow 5s infinite ease-in-out; }
 
+        /* UKURAN PRESISI KARTU ID POTRAIT FISIK (54mm x 85.6mm) */
         .kartu-potrait-pro {
             width: 53mm;
             height: 84mm;
@@ -56,6 +61,7 @@
             text-align: center;
         }
 
+        /* MOTIF PATTERN GEOMETRIS DAN GELOMBANG BERLESI KARTU */
         .kartu-potrait-pro::before {
             content: "";
             position: absolute;
@@ -68,12 +74,14 @@
             pointer-events: none;
         }
 
+        /* HOVER INTERAKTIF SAAT DILIHAT DI DASHBOARD */
         .kartu-potrait-pro:hover {
             transform: translateY(-4px) scale(1.02);
             box-shadow: 0 18px 25px -8px rgba(15, 118, 110, 0.3);
             border-color: #0d9488;
         }
 
+        /* FORMURASI TATA LETAK KHUSUS CETAK PRINT / SAVE PDF (PAS 9 KARTU A4) */
         @media print {
             @page {
                 size: A4 portrait;
@@ -124,14 +132,15 @@
 </head>
 <body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
 
+    <!-- NAVBAR HEADER ATAS (NO PRINT) -->
     <nav class="no-print bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-md px-4 py-3 flex items-center justify-between border-b border-teal-500/50">
         <div class="flex items-center gap-3">
-            <a href="javascript:history.back()" class="btn-interactive bg-teal-700 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl border border-teal-500 font-bold text-xs flex items-center gap-2 transition shadow-sm">
-                <i class="fa-solid fa-arrow-left text-sm"></i> <span>Kembali</span>
+            <a href="/admin" class="btn-interactive bg-teal-700 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl border border-teal-500 font-bold text-xs flex items-center gap-2 transition shadow-sm">
+                <i class="fa-solid fa-arrow-left text-sm"></i> <span>Kembali ke Dashboard</span>
             </a>
             
             <span class="font-bold text-xs sm:text-sm tracking-wide text-amber-400 uppercase truncate">
-                <%= namaSekolah %>
+                UPTD SD NEGERI 1 KARYA MULYA SARI
             </span>
         </div>
 
@@ -140,6 +149,7 @@
         </div>
     </nav>
 
+    <!-- HEADER RESMI SEKOLAH BERANIMASI (NO PRINT) -->
     <header class="no-print bg-gradient-to-r from-teal-900 via-slate-900 to-blue-900 text-white shadow-lg border-b-4 border-amber-500 relative overflow-hidden">
         <div class="absolute -top-12 left-1/4 w-48 h-48 bg-teal-500/20 rounded-full blur-3xl animate-glow pointer-events-none"></div>
         <div class="absolute -bottom-10 right-10 w-36 h-36 bg-amber-400/20 rounded-full blur-3xl animate-glow pointer-events-none" style="animation-delay: 2.5s;"></div>
@@ -150,7 +160,7 @@
                     <i class="fa-solid fa-graduation-cap text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-sm md:text-base font-extrabold tracking-wide uppercase text-slate-100"><%= namaSekolah %></h1>
+                    <h1 class="text-sm md:text-base font-extrabold tracking-wide uppercase text-slate-100">UPTD SD NEGERI 1 KARYA MULYA SARI</h1>
                     <p class="text-[11px] text-teal-200">Format Cetak Presisi: 9 Kartu Per Lembar A4 (Grid 3x3)</p>
                 </div>
             </div>
@@ -161,24 +171,29 @@
         </div>
     </header>
 
+    <!-- UTAMA -->
     <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 animate-fade-in">
 
+        <!-- GRID KARTU (PAS 9 PER LEMBAR A4) -->
         <div class="print-grid flex flex-wrap gap-4 justify-center">
             <% siswa.forEach(s => { %>
                 <div class="kartu-potrait-pro">
                     
+                    <!-- 1. KOP SEKOLAH ELEGAN -->
                     <div class="bg-gradient-to-r from-teal-900 via-slate-900 to-blue-950 text-white p-1.5 border-b-2 border-amber-400 relative z-10 flex items-center justify-center gap-1.5">
                         <div class="w-6 h-6 bg-white rounded-full flex items-center justify-center shrink-0 shadow-sm border border-amber-300">
                             <i class="fa-solid fa-graduation-cap text-teal-900 text-[10px]"></i>
                         </div>
                         <div class="leading-tight text-left">
-                            <h2 class="font-black text-[7.5px] tracking-tight uppercase text-amber-300 truncate max-w-[120px]"><%= namaSekolah %></h2>
+                            <h2 class="font-black text-[7.5px] tracking-tight uppercase text-amber-300">SDN 1 KARYA MULYA SARI</h2>
                             <p class="text-[5.5px] text-slate-200 font-semibold tracking-wider uppercase">Kartu Presensi Digital</p>
                         </div>
                     </div>
 
+                    <!-- 2. KONTEN KARTU (FOTO + BIO + QR) -->
                     <div class="p-1.5 flex flex-col items-center justify-between relative z-10 flex-1 my-auto space-y-1">
                         
+                        <!-- FOTO FORMAL SISWA -->
                         <div class="w-13 h-15 bg-slate-50 border-2 border-teal-500 rounded-lg overflow-hidden flex items-center justify-center shrink-0 shadow-xs mt-0.5">
                             <% if (s.foto) { %>
                                 <img src="<%= s.foto %>" class="w-full h-full object-cover">
@@ -187,6 +202,7 @@
                             <% } %>
                         </div>
 
+                        <!-- IDENTITAS SISWA -->
                         <div class="w-full leading-tight px-1">
                             <h3 class="text-[9.5px] font-black text-slate-900 truncate uppercase tracking-tight leading-snug"><%= s.nama %></h3>
                             
@@ -200,6 +216,7 @@
                             </div>
                         </div>
 
+                        <!-- QR CODE PRESENSI -->
                         <div class="text-center shrink-0 pt-0.5">
                             <div class="bg-white p-1 border-2 border-teal-300 rounded-xl shadow-xs inline-block">
                                 <img src="<%= s.qrImage %>" class="w-15 h-15">
@@ -208,6 +225,7 @@
                         </div>
                     </div>
 
+                    <!-- 3. FOOTER KARTU -->
                     <div class="bg-slate-900 text-slate-300 text-[5.5px] py-1 px-2 flex justify-between items-center relative z-10 border-t border-teal-500/40 font-medium">
                         <span>Tahun Ajaran Aktif</span>
                         <span class="font-bold text-amber-400">Harap Dibawa Setiap Hari</span>
@@ -220,7 +238,7 @@
     </main>
 
     <footer class="no-print bg-slate-900 text-white border-t border-slate-800 py-3 text-center text-[11px] mt-6">
-        <p>© <%= namaSekolah %>. Seluruh Hak Cipta Dilindungi.</p>
+        <p>© UPTD SD Negeri 1 Karya Mulya Sari. Seluruh Hak Cipta Dilindungi.</p>
         <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-200">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-amber-400 font-medium hover:underline">0823-7172-9760</a></p>
     </footer>
 

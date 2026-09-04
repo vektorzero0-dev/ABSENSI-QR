@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemindai Presensi Kartu Siswa - <%= namaSekolah %></title>
+    <title>Pemindai Presensi Kartu Siswa - UPTD SD NEGERI 1 KARYA MULYA SARI</title>
     
+    <!-- 🟢 DUKUNGAN PWA (PROGRESSIVE WEB APP) -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0284c7">
     <meta name="mobile-web-app-capable" content="yes">
@@ -17,6 +18,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
 
+    <!-- Header Pemindai -->
     <header class="bg-blue-900 text-white shadow-md border-b-4 border-emerald-500">
         <div class="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
@@ -25,7 +27,7 @@
                 </div>
                 <div>
                     <h1 class="text-sm font-bold uppercase tracking-wide">Pemindai Presensi Siswa</h1>
-                    <p class="text-[11px] text-blue-200"><%= namaSekolah %></p>
+                    <p class="text-[11px] text-blue-200">UPTD SD Negeri 1 Karya Mulya Sari</p>
                 </div>
             </div>
             <a href="javascript:history.back()" class="bg-blue-950 hover:bg-blue-800 text-blue-100 text-xs px-3 py-2 rounded-xl border border-blue-700 transition flex items-center gap-1.5">
@@ -36,26 +38,13 @@
 
     <main class="max-w-xl mx-auto w-full p-4 flex-1">
 
-        <!-- TOGGLE SWITCH MODE SCAN (MASUK / PULANG) -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm mb-4">
-            <label class="block text-[11px] font-bold text-slate-600 uppercase text-center mb-2">
-                Pilih Tipe Presensi
-            </label>
-            <div class="grid grid-cols-2 gap-2">
-                <button type="button" id="btnTypeMasuk" onclick="setScanType('MASUK')" class="py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-md">
-                    <i class="fa-solid fa-right-to-bracket"></i> PRESENSI MASUK
-                </button>
-                <button type="button" id="btnTypePulang" onclick="setScanType('PULANG')" class="py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-300">
-                    <i class="fa-solid fa-right-from-bracket"></i> PRESENSI PULANG
-                </button>
-            </div>
-        </div>
-
+        <!-- Area Kamera Scanner -->
         <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-md mb-4 text-center">
             <div class="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-300 mb-3 min-h-[250px] flex items-center justify-center">
                 <div id="reader" class="w-full"></div>
             </div>
 
+            <!-- Pilihan Switch Kamera jika Perangkat Memiliki Lebih dari 1 Kamera -->
             <div id="cameraSelectContainer" class="hidden mb-3">
                 <select id="cameraSelect" onchange="gantiKamera(this.value)" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl p-2 focus:ring-2 focus:ring-emerald-600 focus:outline-none">
                 </select>
@@ -66,6 +55,7 @@
             </p>
         </div>
 
+        <!-- Kartu Hasil Sukses -->
         <div id="resultCard" class="hidden bg-white border border-emerald-500/40 rounded-2xl p-5 shadow-lg transition-all duration-300">
             <div class="flex items-start justify-between border-b border-slate-100 pb-3 mb-3">
                 <div class="flex items-center gap-3">
@@ -73,9 +63,7 @@
                         <i class="fa-solid fa-circle-check text-2xl"></i>
                     </div>
                     <div>
-                        <span id="resBadgeType" class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">
-                            Presensi Berhasil
-                        </span>
+                        <span class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">Presensi Berhasil Terdaftar</span>
                         <h2 id="resNama" class="text-base font-bold text-slate-900 mt-1">-</h2>
                     </div>
                 </div>
@@ -99,6 +87,7 @@
             </div>
         </div>
 
+        <!-- Kartu Error -->
         <div id="errorCard" class="hidden bg-white border border-rose-300 rounded-2xl p-4 shadow-md mt-4">
             <div class="flex items-center gap-3">
                 <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-rose-600">
@@ -117,21 +106,6 @@
         const userId = <%= userId %>;
         let isProcessing = false;
         let html5QrCode = null;
-        let activeScanType = 'MASUK';
-
-        function setScanType(type) {
-            activeScanType = type;
-            const btnMasuk = document.getElementById('btnTypeMasuk');
-            const btnPulang = document.getElementById('btnTypePulang');
-
-            if (type === 'PULANG') {
-                btnPulang.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-amber-600 text-white shadow-md";
-                btnMasuk.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-300";
-            } else {
-                btnMasuk.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-md";
-                btnPulang.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-300";
-            }
-        }
 
         function onScanSuccess(decodedText, decodedResult) {
             if (isProcessing) return;
@@ -143,11 +117,7 @@
             fetch('/api/scan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    siswa_id: decodedText, 
-                    scanned_by: userId,
-                    type: activeScanType
-                })
+                body: JSON.stringify({ siswa_id: decodedText, scanned_by: userId })
             })
             .then(res => res.json())
             .then(data => {
@@ -161,16 +131,6 @@
                     document.getElementById('resID').innerText = 'ID: #' + data.siswa.id;
                     document.getElementById('resWaktu').innerText = data.siswa.waktu;
                     document.getElementById('resWAMsg').innerText = data.message;
-
-                    const resBadgeType = document.getElementById('resBadgeType');
-                    if (data.siswa.type === 'PULANG') {
-                        resBadgeType.innerText = 'PRESENSI KEPULANGAN BERHASIL';
-                        resBadgeType.className = "text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold uppercase";
-                    } else {
-                        resBadgeType.innerText = 'PRESENSI KEHADIRAN BERHASIL';
-                        resBadgeType.className = "text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase";
-                    }
-
                     resCard.classList.remove('hidden');
                 } else {
                     resCard.classList.add('hidden');
@@ -208,6 +168,7 @@
             });
         }
 
+        // Inisialisasi Pembukaan Kamera Otomatis
         document.addEventListener("DOMContentLoaded", () => {
             const cameraStatus = document.getElementById('cameraStatusText');
             const cameraSelectContainer = document.getElementById('cameraSelectContainer');
@@ -217,6 +178,7 @@
                 if (devices && devices.length > 0) {
                     let selectedCameraId = devices[0].id;
 
+                    // Isi Pilihan Opsi Kamera
                     if (devices.length > 1) {
                         cameraSelect.innerHTML = '';
                         devices.forEach((dev, idx) => {
@@ -228,6 +190,7 @@
                         cameraSelectContainer.classList.remove('hidden');
                     }
 
+                    // Otomatis cari kamera belakang
                     const backCam = devices.find(d => 
                         d.label.toLowerCase().includes('back') || 
                         d.label.toLowerCase().includes('belakang') ||
@@ -261,7 +224,7 @@
     </script>
 
     <footer class="bg-white border-t border-slate-200 py-3 text-center text-[11px] text-slate-600">
-        <p>© <%= namaSekolah %>. Seluruh Hak Cipta Dilindungi.</p>
+        <p>© UPTD SD Negeri 1 Karya Mulya Sari. Seluruh Hak Cipta Dilindungi.</p>
         <p class="mt-0.5 text-slate-400">Pengembang Sistem: <strong class="text-slate-600">Zeeo</strong> | Bantuan Teknis (WhatsApp): <a href="https://wa.me/6282371729760" target="_blank" class="text-blue-700 font-medium hover:underline">0823-7172-9760</a></p>
     </footer>
 
