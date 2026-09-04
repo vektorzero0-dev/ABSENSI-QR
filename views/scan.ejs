@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemindai Presensi Siswa - <%= namaSekolah %></title>
+    <title>Pemindai Presensi Kartu Siswa - <%= namaSekolah %></title>
     
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0284c7">
@@ -36,15 +36,17 @@
 
     <main class="max-w-xl mx-auto w-full p-4 flex-1">
 
-        <!-- SAKELAR OPSI PRESENSI DATANG & PULANG -->
+        <!-- TOGGLE SWITCH MODE SCAN (MASUK / PULANG) -->
         <div class="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm mb-4">
-            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2 text-center">Pilih Mode Presensi Scan</label>
+            <label class="block text-[11px] font-bold text-slate-600 uppercase text-center mb-2">
+                Pilih Tipe Presensi
+            </label>
             <div class="grid grid-cols-2 gap-2">
-                <button type="button" id="btnModeDatang" onclick="setJenisAbsen('DATANG')" class="py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border bg-blue-900 text-white border-blue-900 shadow-sm">
-                    <i class="fa-solid fa-school"></i> PRESENSI DATANG
+                <button type="button" id="btnTypeMasuk" onclick="setScanType('MASUK')" class="py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-md">
+                    <i class="fa-solid fa-right-to-bracket"></i> PRESENSI MASUK
                 </button>
-                <button type="button" id="btnModePulang" onclick="setJenisAbsen('PULANG')" class="py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200">
-                    <i class="fa-solid fa-house-chimney"></i> PRESENSI PULANG
+                <button type="button" id="btnTypePulang" onclick="setScanType('PULANG')" class="py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-300">
+                    <i class="fa-solid fa-right-from-bracket"></i> PRESENSI PULANG
                 </button>
             </div>
         </div>
@@ -71,7 +73,9 @@
                         <i class="fa-solid fa-circle-check text-2xl"></i>
                     </div>
                     <div>
-                        <span id="resTipeBadge" class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">Presensi Berhasil Terdaftar</span>
+                        <span id="resBadgeType" class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">
+                            Presensi Berhasil
+                        </span>
                         <h2 id="resNama" class="text-base font-bold text-slate-900 mt-1">-</h2>
                     </div>
                 </div>
@@ -113,19 +117,19 @@
         const userId = <%= userId %>;
         let isProcessing = false;
         let html5QrCode = null;
-        let selectedJenisAbsen = 'DATANG';
+        let activeScanType = 'MASUK';
 
-        function setJenisAbsen(tipe) {
-            selectedJenisAbsen = tipe;
-            const btnD = document.getElementById('btnModeDatang');
-            const btnP = document.getElementById('btnModePulang');
+        function setScanType(type) {
+            activeScanType = type;
+            const btnMasuk = document.getElementById('btnTypeMasuk');
+            const btnPulang = document.getElementById('btnTypePulang');
 
-            if (tipe === 'PULANG') {
-                btnP.className = "py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border bg-amber-600 text-white border-amber-600 shadow-sm";
-                btnD.className = "py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200";
+            if (type === 'PULANG') {
+                btnPulang.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-amber-600 text-white shadow-md";
+                btnMasuk.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-300";
             } else {
-                btnD.className = "py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border bg-blue-900 text-white border-blue-900 shadow-sm";
-                btnP.className = "py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200";
+                btnMasuk.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-md";
+                btnPulang.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-300";
             }
         }
 
@@ -139,7 +143,11 @@
             fetch('/api/scan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ siswa_id: decodedText, scanned_by: userId, jenis_absen: selectedJenisAbsen })
+                body: JSON.stringify({ 
+                    siswa_id: decodedText, 
+                    scanned_by: userId,
+                    type: activeScanType
+                })
             })
             .then(res => res.json())
             .then(data => {
@@ -148,12 +156,21 @@
 
                 if (data.success) {
                     errCard.classList.add('hidden');
-                    document.getElementById('resTipeBadge').innerText = selectedJenisAbsen === 'PULANG' ? 'PRESENSI PULANG BERHASIL' : 'PRESENSI DATANG BERHASIL';
                     document.getElementById('resNama').innerText = data.siswa.nama;
                     document.getElementById('resKelas').innerText = data.siswa.nama_kelas;
                     document.getElementById('resID').innerText = 'ID: #' + data.siswa.id;
                     document.getElementById('resWaktu').innerText = data.siswa.waktu;
                     document.getElementById('resWAMsg').innerText = data.message;
+
+                    const resBadgeType = document.getElementById('resBadgeType');
+                    if (data.siswa.type === 'PULANG') {
+                        resBadgeType.innerText = 'PRESENSI KEPULANGAN BERHASIL';
+                        resBadgeType.className = "text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold uppercase";
+                    } else {
+                        resBadgeType.innerText = 'PRESENSI KEHADIRAN BERHASIL';
+                        resBadgeType.className = "text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase";
+                    }
+
                     resCard.classList.remove('hidden');
                 } else {
                     resCard.classList.add('hidden');
