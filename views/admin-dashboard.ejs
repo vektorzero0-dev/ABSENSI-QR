@@ -264,7 +264,90 @@
                 </div>
             </form>
         </div>
+<!-- KOTAK KONEKSI WA GATEWAY KHUSUS ADMIN -->
+<div class="mt-4 pt-4 border-t border-amber-200/60 relative z-10">
+    <label class="block text-[11px] font-bold text-slate-700 mb-1">Status Connections WA Gateway (Admin)</label>
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-xl border border-amber-300">
+        <div>
+            <p class="text-xs text-slate-700 font-medium" id="adminWaStatusText">
+                Status Admin: <span class="text-slate-500 font-bold">Memeriksa...</span>
+            </p>
+            <div id="adminPairingContainer" class="hidden mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200 text-center">
+                <span class="text-[10px] text-blue-800 font-medium block">Kode Tautan WA Admin:</span>
+                <strong id="adminPairingCodeText" class="text-lg font-mono text-blue-900 tracking-widest block my-0.5">-</strong>
+                <span class="text-[9px] text-blue-700 block">Masukkan di HP (WA > Perangkat Tertaut > Tautkan dg Nomor)</span>
+            </div>
+        </div>
+        <div class="flex gap-2 w-full sm:w-auto justify-end">
+            <button type="button" onclick="mintaPairingAdmin()" id="btnPairingAdmin" class="btn-interactive bg-blue-800 hover:bg-blue-900 text-white text-xs px-3.5 py-2 rounded-xl font-semibold transition flex items-center gap-1.5 shadow-md">
+                <i class="fa-solid fa-mobile-screen-button"></i> Tautkan Nomor WA Admin
+            </button>
+            <button type="button" onclick="resetWAAdmin()" class="btn-interactive bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2 rounded-xl border border-rose-200 font-semibold transition flex items-center gap-1.5">
+                <i class="fa-solid fa-trash"></i> Reset WA
+            </button>
+        </div>
+    </div>
+</div>
 
+<script>
+    function cekStatusWAAdmin() {
+        fetch('/api/wa-status?userId=1')
+            .then(res => res.json())
+            .then(data => {
+                const statusText = document.getElementById('adminWaStatusText');
+                const pairingContainer = document.getElementById('adminPairingContainer');
+                const pairingCodeText = document.getElementById('adminPairingCodeText');
+
+                if (data.statusWA === 'TERHUBUNG') {
+                    statusText.innerHTML = `Status Admin: <span class="text-emerald-700 font-bold">Terhubung & Siap Terkirim ✅</span>`;
+                    pairingContainer.classList.add('hidden');
+                } else if (data.pairingCode) {
+                    statusText.innerHTML = `Status Admin: <span class="text-blue-700 font-bold">Masukkan Kode di WA HP 📲</span>`;
+                    pairingCodeText.innerText = data.pairingCode;
+                    pairingContainer.classList.remove('hidden');
+                } else if (data.statusWA === 'MENUNGGU_PAIRING_CODE') {
+                    statusText.innerHTML = `Status Admin: <span class="text-amber-600 font-bold">Menyiapkan Tautan... ⏳</span>`;
+                } else {
+                    statusText.innerHTML = `Status Admin: <span class="text-rose-600 font-bold">Belum Terhubung ❌</span>`;
+                    pairingContainer.classList.add('hidden');
+                }
+            })
+            .catch(err => console.error("Gagal cek WA Admin:", err));
+    }
+
+    function mintaPairingAdmin() {
+        const noHp = prompt("Masukkan Nomor WhatsApp Admin (Contoh: 082371729760):");
+        if (!noHp) return;
+
+        const btn = document.getElementById('btnPairingAdmin');
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
+        btn.disabled = true;
+
+        fetch(`/api/request-pairing?userId=1&phone=${encodeURIComponent(noHp)}`)
+            .then(res => res.json())
+            .then(data => {
+                alert("Mempersiapkan kode tautan. Silakan tunggu 3-5 detik...");
+                setTimeout(() => {
+                    btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Tautkan Nomor WA Admin`;
+                    btn.disabled = false;
+                    cekStatusWAAdmin();
+                }, 3000);
+            });
+    }
+
+    function resetWAAdmin() {
+        if (!confirm('Hapus sesi WhatsApp Admin?')) return;
+        fetch('/api/reset-wa?userId=1')
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                cekStatusWAAdmin();
+            });
+    }
+
+    setInterval(cekStatusWAAdmin, 3000);
+    cekStatusWAAdmin();
+</script>
         <div id="section-dapodik" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex items-center gap-3 mb-3 border-b border-emerald-200/60 pb-2 relative z-10">
                 <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
