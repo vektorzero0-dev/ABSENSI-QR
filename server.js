@@ -132,11 +132,12 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         console.log(`⚡ [User #${userId}] Inisialisasi WA Socket (Baileys v${version.join('.')})...`);
 
         const sock = makeWASocket({
-            logger: pino({ level: 'silent' }),
-            auth: state,
-            printQRInTerminal: false,
-            browser: ["Ubuntu", "Chrome", "20.0.04"]
-        });
+    logger: pino({ level: 'silent' }),
+    auth: state,
+    printQRInTerminal: false,
+    // Gunakan signature Chrome Desktop yang stabil
+    browser: ["Mac OS", "Chrome", "121.0.6167.85"]
+});
 
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
@@ -193,29 +194,33 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
             }
 
             if (connection === 'close') {
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
+    const statusCode = lastDisconnect?.error?.output?.statusCode;
+    const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
-                console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
-                waStatus[userId] = 'TERPUTUS';
-                delete waSessions[userId];
+    console.log(`⚠️ [User #${userId}] WA Terputus. Status Code: ${statusCode}`);
 
-                if (!isLoggedOut) {
-                    console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
-                    if (!reconnectTimers[userId]) {
-                        reconnectTimers[userId] = setTimeout(() => {
-                            delete reconnectTimers[userId];
-                            connectToWhatsApp(userId);
-                        }, 8000);
-                    }
-                } else {
-                    console.log(`🚪 User #${userId} Logged Out. Menghapus sesi DB...`);
-                    delete qrCodes[userId];
-                    delete pairingCodes[userId];
-                    await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
-                }
-            }
-        });
+    // JIKA SEDANG MENUNGGU PAIRING / SCAN, JANGAN LANGSUNG RECONNECT SUPAYA KODE TAHAN LAMA
+    if (waStatus[userId] === 'MENUNGGU_PAIRING_CODE' || waStatus[userId] === 'MENUNGGU_SCAN') {
+        console.log(`⏳ Menunggu input pengguna di HP, menahan auto-reconnect...`);
+        return; 
+    }
+
+    waStatus[userId] = 'TERPUTUS';
+    delete waSessions[userId];
+
+    if (!isLoggedOut) {
+        if (!reconnectTimers[userId]) {
+            reconnectTimers[userId] = setTimeout(() => {
+                delete reconnectTimers[userId];
+                connectToWhatsApp(userId);
+            }, 10000); // Naikkan jeda reconnect jadi 10 detik agar tidak tumpuk
+        }
+    } else {
+        delete qrCodes[userId];
+        delete pairingCodes[userId];
+        await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
+    }
+}
     } catch (err) {
         console.error(`❌ WA Connect Error User #${userId}:`, err.message);
         waStatus[userId] = 'ERROR';
