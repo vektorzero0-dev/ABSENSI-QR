@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session); // Mencegah warning MemoryStore
 const path = require('path');
 const pino = require('pino');
 const makeWASocket = require('@whiskeysockets/baileys').default;
@@ -30,20 +31,25 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Menggunakan PostgreSQL Store untuk session agar aman di Production (Render)
 app.use(session({
+    store: new pgSession({
+        pool: pool,
+        tableName: 'session',
+        createTableIfMissing: true // Otomatis buat tabel session di DB
+    }),
     secret: 'secret-key-presensi-sd',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }
+    saveUninitialized: false,
+    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, secure: false }
 }));
 
 const waSessions = {};
 const qrCodes = {};
 const waStatus = {};
 const pairingCodes = {};
-const reconnectTimers = {}; // Mencegah looping restart berulang[cite: 4]
+const reconnectTimers = {};
 
-// Helper Fungsi Dapatkan Pengaturan Dinamis (Nama Sekolah & Mode Pengirim)
 async function getPengaturan(kunci, defaultValue = '') {
     try {
         const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = $1", [kunci]);
@@ -57,7 +63,6 @@ function bersihkanGelar(nama) {
     return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
 }
 
-// System QR Safe Generator
 async function generateQRDataURL(text) {
     try {
         if (!text) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
@@ -80,7 +85,6 @@ async function getAuthState(userId) {
 
 async function connectToWhatsApp(userId, phoneNumber = null) {
     try {
-        // Bersihkan timer pending jika ada request ulang[cite: 4]
         if (reconnectTimers[userId]) {
             clearTimeout(reconnectTimers[userId]);
             delete reconnectTimers[userId];
@@ -104,7 +108,8 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
             logger: pino({ level: 'silent' }),
             auth: state,
             printQRInTerminal: false,
-            browser: ["Ubuntu", "Chrome", "120.0.0.0"],
+            // Mengubah identitas browser menjadi desktop standar agar terhindar dari error 405
+            browser: ["macOS", "Desktop", "10.15.7"],
             connectTimeoutMs: 60000,
             defaultQueryTimeoutMs: 60000,
             keepAliveIntervalMs: 25000,
@@ -115,7 +120,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
 
-        // MINTA KODE PAIRING (JIKA DIPANGGUL DENGAN NOMOR HP)[cite: 4]
         if (phoneNumber && !sock.authState.creds.registered) {
             setTimeout(async () => {
                 try {
@@ -137,7 +141,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
-            // QR CODE GENERATION (DENGAN DEBOUNCE TERKONTROL)[cite: 4]
             if (qr && !phoneNumber && !sock.authState.creds.registered) {
                 try {
                     qrCodes[userId] = await generateQRDataURL(qr);
@@ -166,15 +169,13 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                // Hanya hapus sesi jika di-logout resmi dari HP (401)[cite: 4]
-                const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
+                const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 405);
 
                 console.log(`⚠️ [User #${userId}] WhatsApp Terputus. Status Code: ${statusCode}`);
                 waStatus[userId] = 'TERPUTUS';
                 delete waSessions[userId];
 
                 if (!isLoggedOut) {
-                    // Beri jeda 8 detik agar tidak looping kedap-kedip[cite: 4]
                     console.log(`🔄 Sambung ulang User #${userId} dalam 8 detik...`);
                     if (!reconnectTimers[userId]) {
                         reconnectTimers[userId] = setTimeout(() => {
@@ -183,7 +184,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                         }, 8000);
                     }
                 } else {
-                    console.log(`🚪 User #${userId} Logged Out. Menghapus folder sesi lokal...`);
+                    console.log(`🚪 User #${userId} Logged Out / Sesi Ditolak (405). Menghapus folder sesi lokal...`);
                     delete qrCodes[userId];
                     delete pairingCodes[userId];
                     const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
@@ -326,7 +327,6 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId;
     if (!userId) return res.redirect('/');
 
-    // 1. Ambil Pengaturan Global dari Database (dengan default value)
     const namaSekolah = await getPengaturan('NAMA_SEKOLAH', 'SD NEGERI PRESENSI DIGITAL');
     const izinkanGuruPilihWA = await getPengaturan('IZINKAN_GURU_PILIH_WA', 'TIDAK');
     const modePengirimWAAdmin = await getPengaturan('MODE_PENGIRIM_WA', 'ADMIN');
@@ -405,7 +405,6 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
 
         req.session.userId = userId;
 
-        // 2. Oper Variabel ke EJS (Termasuk variabel yang error tadi)
         res.render('walikelas-dashboard', {
             user: userRaw,
             siswaList: siswaData,
@@ -700,15 +699,24 @@ app.get('/api/request-pairing', async (req, res) => {
     res.json({ success: true, message: 'Mempersiapkan kode tautan...' });
 });
 
+// FIXED ROUTE: Ditambahkan try-catch block yang benar
 app.get('/api/wa-status', (req, res) => {
+    try {
         const userId = parseInt(req.query.userId) || req.session.userId || 1;
-        res.json({
+        
+        return res.json({
             success: true,
             statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
             qrCodeWA: qrCodes[userId] || null,
             pairingCode: pairingCodes[userId] || null
         });
-    });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: "Gagal mengambil status WA: " + err.message
+        });
+    }
+});
     
 app.get('/api/reset-wa', async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId || 1;
@@ -769,7 +777,6 @@ app.post('/api/scan', async (req, res) => {
             );
         }
 
-        // PENENTUAN MODE PENGIRIM WA DARI SETELAN ADMIN
         const modePengirimGlobal = await getPengaturan('MODE_PENGIRIM_WA', 'SENDIRI');
         let waClient = null;
 
@@ -849,7 +856,7 @@ app.post('/api/absensi/reset-riwayat', async (req, res) => {
     }
 });
 
-// ---------------- FITUR REKAP BULANAN & HARIAN DIBERESKAN DENGAN RAPIH ---------------- //
+// ---------------- FITUR REKAP BULANAN & HARIAN ---------------- //
 
 app.get('/api/absensi/preview', async (req, res) => {
     const { bulan, tahun, kelas_id } = req.query;
@@ -1038,7 +1045,6 @@ app.get('/api/absensi/export', async (req, res) => {
     }
 });
 
-// PING ENDPOINT UNTUK UPTIMEROBOT[cite: 4]
 app.get('/ping', (req, res) => res.send('OK'));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server Presensi Aktif di Port ${PORT}`));
