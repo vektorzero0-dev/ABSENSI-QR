@@ -221,6 +221,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
     }
 }
+});
     } catch (err) {
         console.error(`❌ WA Connect Error User #${userId}:`, err.message);
         waStatus[userId] = 'ERROR';
