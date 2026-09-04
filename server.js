@@ -43,41 +43,13 @@ const waStatus = {};
 const pairingCodes = {};
 const reconnectTimers = {};
 
-// ---------------- AUTOMATIC DATABASE MIGRATION ---------------- //
-async function initDatabase() {
-    try {
-        console.log('🔄 Memeriksa struktur database PostgreSQL...');
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS pengaturan (
-                kunci VARCHAR(50) PRIMARY KEY,
-                nilai TEXT
-            )
-        `);
-        await pool.query(`
-            INSERT INTO pengaturan (kunci, nilai) 
-            VALUES ('nama_sekolah', 'UPTD SD NEGERI 1 KARYA MULYA SARI') 
-            ON CONFLICT (kunci) DO NOTHING
-        `);
-        await pool.query(`
-            INSERT INTO pengaturan (kunci, nilai) 
-            VALUES ('mode_pengirim_wa', 'WALI_KELAS') 
-            ON CONFLICT (kunci) DO NOTHING
-        `);
-        await pool.query(`
-            ALTER TABLE absensi ADD COLUMN IF NOT EXISTS type VARCHAR(10) DEFAULT 'MASUK'
-        `);
-        console.log('✅ Inisialisasi Database Siap!');
-    } catch (err) {
-        console.error('❌ Gagal Migration Database:', err.message);
-    }
-}
-initDatabase();
 
 function bersihkanGelar(nama) {
     if (!nama) return '';
     return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
 }
 
+// System QR Safe Generator
 async function generateQRDataURL(text) {
     try {
         if (!text) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
@@ -108,6 +80,15 @@ async function getModePengirim() {
     return "WALI_KELAS";
 }
 
+// ----------------- HYBRID AUTH STATE (LOKAL AUTH FOLDER) ----------------- //
+
+async function getAuthState(userId) {
+    const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
+    if (!fs.existsSync(authFolder)) {
+        fs.mkdirSync(authFolder, { recursive: true });
+    }
+    return await useMultiFileAuthState(authFolder);
+}
 // ----------------- WHATSAPP CONNECTION (PERBAIKAN FITUR PAIRING) ----------------- //
 
 async function connectToWhatsApp(userId, phoneNumber = null) {
@@ -164,6 +145,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                     }
                 }, 5000);
             }
+        
             sock.ev.on('connection.update', async (update) => {
                  const { connection, lastDisconnect, qr } = update;
                 
