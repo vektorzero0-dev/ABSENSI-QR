@@ -16,26 +16,26 @@ async function usePostgresAuthState(userId = 'default') {
     };
 
     const writeData = async (data, type, id) => {
-    try {
-        const key = `${userId}:${type}:${id}`;
-        const value = JSON.stringify(data, BufferJSON.replacer);
-        await pool.query(
-            `INSERT INTO wa_sessions (key_id, session_data, updated_at) 
-             VALUES ($1, $2, NOW()) 
-             ON CONFLICT (key_id) DO UPDATE SET session_data = $2, updated_at = NOW()`,
-            [key, value]
-        );
-    } catch (error) {
-        console.error(`❌ Gagal simpan ${type}:${id} ke Neon:`, error.message);
-    }
-};
+        try {
+            const key = `${userId}:${type}:${id}`;
+            const value = JSON.stringify(data, BufferJSON.replacer);
+            await pool.query(
+                `INSERT INTO wa_sessions (key_id, session_data, updated_at) 
+                 VALUES ($1, $2, NOW()) 
+                 ON CONFLICT (key_id) DO UPDATE SET session_data = $2, updated_at = NOW()`,
+                [key, value]
+            );
+        } catch (error) {
+            console.error(`❌ Gagal simpan ${type}:${id} ke DB:`, error.message);
+        }
+    };
 
     const removeData = async (type, id) => {
         try {
             const key = `${userId}:${type}:${id}`;
             await pool.query('DELETE FROM wa_sessions WHERE key_id = $1', [key]);
         } catch (error) {
-            console.error(`❌ Gagal hapus ${type}:${id} dari Neon:`, error.message);
+            console.error(`❌ Gagal hapus ${type}:${id} dari DB:`, error.message);
         }
     };
 
@@ -60,8 +60,11 @@ async function usePostgresAuthState(userId = 'default') {
             keys: {
                 get: async (type, ids) => {
                     const data = {};
+                    // PERBAIKAN FATAL: ids adalah Array, langsung di-loop array-nya!
+                    const idList = Array.isArray(ids) ? ids : Object.keys(ids);
+
                     await Promise.all(
-                        Object.keys(ids).map(async (id) => {
+                        idList.map(async (id) => {
                             let value = await readData(type, id);
                             if (type === 'app-state-sync-key' && value) {
                                 value = proto.Message.AppStateSyncKeyData.fromObject(value);
@@ -71,7 +74,6 @@ async function usePostgresAuthState(userId = 'default') {
                     );
                     return data;
                 },
-                // BAGIAN PENTING: Menyimpan rotasi kunci enkripsi harian ke Neon DB
                 set: async (data) => {
                     const tasks = [];
                     for (const category in data) {
