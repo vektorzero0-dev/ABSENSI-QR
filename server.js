@@ -260,7 +260,7 @@ app.get('/admin', async (req, res) => {
         const kelasRes = await pool.query(`SELECT * FROM kelas ORDER BY id ASC`);
 
         const absensiRes = await pool.query(`
-            SELECT a.id, a.waktu, a.type, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            SELECT a.id, a.waktu, COALESCE(a.type, 'MASUK') AS type, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM absensi a 
             JOIN siswa s ON a.siswa_id = s.id 
             LEFT JOIN kelas k ON s.kelas_id = k.id 
@@ -299,6 +299,7 @@ app.get('/admin', async (req, res) => {
             modePengirim: modePengirim
         });
     } catch (err) {
+        console.error("Admin Dashboard Error:", err);
         res.status(500).send("Kesalahan Database: " + err.message);
     }
 });
