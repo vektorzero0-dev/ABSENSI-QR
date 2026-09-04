@@ -929,7 +929,7 @@ app.get('/api/absensi/export', async (req, res) => {
                 sections: [{
                     children: [
                         new Paragraph({ text: namaSekolah.toUpperCase(), heading: "Heading1", alignment: AlignmentType.CENTER }),
-                        new Paragraph({ text: judul, heading: "Heading2", alignment AlignmentType.CENTER }),
+                        new Paragraph({ text: judul, heading: "Heading2", alignment: AlignmentType.CENTER }),
                         new Paragraph({ text: "" }),
                         new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } })
                     ]
