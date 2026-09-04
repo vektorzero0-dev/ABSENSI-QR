@@ -7,7 +7,7 @@ const { DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets
 const QRCode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const pool = require('./db');
-const useNeonAuthState = require('./waAuth'); // Menggunakan waAuth.js asli milik lu
+const useNeonAuthState = require('./waAuth'); // Menggunakan waAuth.js milikmu
 
 // Package Import & Upload Excel
 const multer = require('multer');
@@ -47,40 +47,30 @@ const reconnectTimers = {};
 async function initDatabase() {
     try {
         console.log('🔄 Memeriksa struktur database PostgreSQL...');
-        
-        // 1. Tabel Pengaturan
         await pool.query(`
             CREATE TABLE IF NOT EXISTS pengaturan (
                 kunci VARCHAR(50) PRIMARY KEY,
                 nilai TEXT
             )
         `);
-
-        // 2. Default nama_sekolah
         await pool.query(`
             INSERT INTO pengaturan (kunci, nilai) 
             VALUES ('nama_sekolah', 'UPTD SD NEGERI 1 KARYA MULYA SARI') 
             ON CONFLICT (kunci) DO NOTHING
         `);
-
-        // 3. Default mode_pengirim_wa
         await pool.query(`
             INSERT INTO pengaturan (kunci, nilai) 
             VALUES ('mode_pengirim_wa', 'WALI_KELAS') 
             ON CONFLICT (kunci) DO NOTHING
         `);
-
-        // 4. Kolom 'type' untuk absensi kepulangan
         await pool.query(`
             ALTER TABLE absensi ADD COLUMN IF NOT EXISTS type VARCHAR(10) DEFAULT 'MASUK'
         `);
-
         console.log('✅ Inisialisasi Database Siap!');
     } catch (err) {
         console.error('❌ Gagal Migration Database:', err.message);
     }
 }
-
 initDatabase();
 
 function bersihkanGelar(nama) {
@@ -98,7 +88,6 @@ async function generateQRDataURL(text) {
     }
 }
 
-// Helper Pengaturan Nama Sekolah & Mode Pengirim WA
 async function getNamaSekolah() {
     try {
         const res = await pool.query("SELECT nilai FROM pengaturan WHERE kunci = 'nama_sekolah'");
@@ -119,7 +108,7 @@ async function getModePengirim() {
     return "WALI_KELAS";
 }
 
-// ----------------- WHATSAPP CONNECTION (KEMBALI KE NEON AUTH ASLI LU) ----------------- //
+// ----------------- WHATSAPP CONNECTION (PERBAIKAN FITUR PAIRING) ----------------- //
 
 async function connectToWhatsApp(userId, phoneNumber = null) {
     try {
@@ -137,7 +126,6 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         delete qrCodes[userId];
         delete pairingCodes[userId];
 
-        // MENGGUNAKAN NEON POSTGRES AUTH STATE ASLI MILIK LU
         const { state, saveCreds } = await useNeonAuthState(pool, `user_${userId}`);
         const { version } = await fetchLatestBaileysVersion();
 
@@ -147,32 +135,36 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
             logger: pino({ level: 'silent' }),
             auth: state,
             printQRInTerminal: false,
-            browser: ["Ubuntu", "Chrome", "120.0.0.0"]
+            browser: ["Ubuntu", "Chrome", "20.0.04"]
         });
 
         waSessions[userId] = sock;
         sock.ev.on('creds.update', saveCreds);
 
-        if (phoneNumber && !sock.authState.creds.registered) {
-            setTimeout(async () => {
-                try {
-                    let cleanPhone = phoneNumber.toString().replace(/[^0-9]/g, '');
-                    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.slice(1);
-                    
-                    console.log(`📱 Meminta Pairing Code WA untuk nomor: ${cleanPhone}`);
-                    const code = await sock.requestPairingCode(cleanPhone);
-                    pairingCodes[userId] = code;
-                    waStatus[userId] = 'MENUNGGU_PAIRING_CODE';
-                    console.log(`🔑 [User #${userId}] Pairing Code WA Terbit: ${code}`);
-                } catch (pErr) {
-                    console.error("Gagal Request Pairing Code:", pErr.message);
-                    waStatus[userId] = 'ERROR_PAIRING';
-                }
-            }, 3000);
-        }
+        let pairingRequested = false;
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
+
+            // Meminta Pairing Code saat koneksi socket dibuka/siap
+            if (phoneNumber && !sock.authState.creds.registered && !pairingRequested) {
+                pairingRequested = true;
+                setTimeout(async () => {
+                    try {
+                        let cleanPhone = phoneNumber.toString().replace(/[^0-9]/g, '');
+                        if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.slice(1);
+                        
+                        console.log(`📱 Meminta Pairing Code WA untuk nomor: ${cleanPhone}`);
+                        const code = await sock.requestPairingCode(cleanPhone);
+                        pairingCodes[userId] = code;
+                        waStatus[userId] = 'MENUNGGU_PAIRING_CODE';
+                        console.log(`🔑 [User #${userId}] Pairing Code WA Terbit: ${code}`);
+                    } catch (pErr) {
+                        console.error("Gagal Request Pairing Code:", pErr.message);
+                        waStatus[userId] = 'ERROR_PAIRING';
+                    }
+                }, 2000);
+            }
 
             if (qr && !phoneNumber && !sock.authState.creds.registered) {
                 try {
@@ -353,7 +345,7 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
         `, [userId]);
 
         if (userRes.rows.length === 0) return res.redirect('/');
-        
+
         const userRaw = userRes.rows[0];
         userRaw.nama = bersihkanGelar(userRaw.nama);
 
@@ -646,7 +638,7 @@ app.post('/api/siswa/import-excel', upload.single('file_excel'), async (req, res
                 if (namaKelas) {
                     const cleanNamaKelas = namaKelas.toString().replace(/\s+/g, ' ').trim();
                     let kRes = await pool.query('SELECT id FROM kelas WHERE LOWER(TRIM(nama_kelas)) = LOWER($1)', [cleanNamaKelas]);
-                    
+
                     if (kRes.rows.length > 0) {
                         kelasId = kRes.rows[0].id;
                     } else {
@@ -762,9 +754,9 @@ app.post('/api/scan', async (req, res) => {
         let waClient = null;
 
         if (modePengirim === 'TERPUSAT') {
-            waClient = waSessions[1]; // Sesi Admin
+            waClient = waSessions[1];
         } else {
-            waClient = waSessions[parsedScannedBy]; // Sesi Wali Kelas
+            waClient = waSessions[parsedScannedBy];
         }
 
         if (!waClient) {
