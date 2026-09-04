@@ -3,11 +3,11 @@ const session = require('express-session');
 const path = require('path');
 const pino = require('pino');
 const makeWASocket = require('@whiskeysockets/baileys').default;
-const { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
-const fs = require('fs');
 const pool = require('./db');
+const useNeonAuthState = require('./waAuth'); // Menggunakan waAuth.js asli milik lu
 
 // Package Import & Upload Excel
 const multer = require('multer');
@@ -119,15 +119,7 @@ async function getModePengirim() {
     return "WALI_KELAS";
 }
 
-// ----------------- HYBRID AUTH STATE ----------------- //
-
-async function getAuthState(userId) {
-    const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
-    if (!fs.existsSync(authFolder)) {
-        fs.mkdirSync(authFolder, { recursive: true });
-    }
-    return await useMultiFileAuthState(authFolder);
-}
+// ----------------- WHATSAPP CONNECTION (KEMBALI KE NEON AUTH ASLI LU) ----------------- //
 
 async function connectToWhatsApp(userId, phoneNumber = null) {
     try {
@@ -145,7 +137,8 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
         delete qrCodes[userId];
         delete pairingCodes[userId];
 
-        const { state, saveCreds } = await getAuthState(userId);
+        // MENGGUNAKAN NEON POSTGRES AUTH STATE ASLI MILIK LU
+        const { state, saveCreds } = await useNeonAuthState(pool, `user_${userId}`);
         const { version } = await fetchLatestBaileysVersion();
 
         console.log(`⚡ [User #${userId}] Inisialisasi WA Socket (Baileys v${version.join('.')})...`);
@@ -154,12 +147,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
             logger: pino({ level: 'silent' }),
             auth: state,
             printQRInTerminal: false,
-            browser: ["Ubuntu", "Chrome", "120.0.0.0"],
-            connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 25000,
-            qrTimeout: 45000,
-            syncFullHistory: false
+            browser: ["Ubuntu", "Chrome", "120.0.0.0"]
         });
 
         waSessions[userId] = sock;
@@ -180,7 +168,7 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                     console.error("Gagal Request Pairing Code:", pErr.message);
                     waStatus[userId] = 'ERROR_PAIRING';
                 }
-            }, 5000);
+            }, 3000);
         }
 
         sock.ev.on('connection.update', async (update) => {
@@ -229,13 +217,10 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
                         }, 8000);
                     }
                 } else {
-                    console.log(`🚪 User #${userId} Logged Out. Menghapus folder sesi lokal...`);
+                    console.log(`🚪 User #${userId} Logged Out. Menghapus sesi DB...`);
                     delete qrCodes[userId];
                     delete pairingCodes[userId];
-                    const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
-                    if (fs.existsSync(authFolder)) {
-                        fs.rmSync(authFolder, { recursive: true, force: true });
-                    }
+                    await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
                 }
             }
         });
@@ -740,10 +725,7 @@ app.get('/api/reset-wa', async (req, res) => {
     delete pairingCodes[userId];
     waStatus[userId] = 'BELUM_TERHUBUNG';
 
-    const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
-    if (fs.existsSync(authFolder)) {
-        fs.rmSync(authFolder, { recursive: true, force: true });
-    }
+    await pool.query('DELETE FROM wa_sessions WHERE key_id LIKE $1', [`user_${userId}:%`]);
     res.json({ success: true, message: 'Sesi WA Berhasil Direset!' });
 });
 
