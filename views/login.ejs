@@ -12,6 +12,7 @@
         
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
 
+        /* LATAR BELAKANG TERANG DENGAN GRADASI BERGERAK & MOTIF */
         .bg-light-animated {
             background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
             background-size: 400% 400%;
@@ -28,12 +29,14 @@
             100% { background-position: 0% 50%; }
         }
 
+        /* BOLA CAHAYA ANIMASI HEADER */
         @keyframes pulseGlow {
             0%, 100% { opacity: 0.3; transform: scale(1); }
             50% { opacity: 0.7; transform: scale(1.2); }
         }
         .animate-glow { animation: pulseGlow 5s infinite ease-in-out; }
 
+        /* KARTU LOGIN BERMOTIF & BERANIMASI (TEMA SOFT BLUE) */
         .glass-card {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(239, 246, 255, 0.9) 100%);
             backdrop-filter: blur(16px);
@@ -44,6 +47,7 @@
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* MOTIF PATTERN INTERNAL KARTU */
         .glass-card::before {
             content: "";
             position: absolute;
@@ -79,7 +83,10 @@
 </head>
 <body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased relative overflow-x-hidden">
 
+    <!-- Header Resmi Sekolah Dengan Animasi Cahaya -->
     <header class="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-900 text-white border-b-4 border-amber-500 sticky top-0 z-20 overflow-hidden shadow-lg">
+        
+        <!-- BOLA CAHAYA ANIMASI ATAS -->
         <div class="absolute -top-12 left-1/4 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl animate-glow pointer-events-none"></div>
         <div class="absolute -bottom-10 right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl animate-glow pointer-events-none" style="animation-delay: 2s;"></div>
 
@@ -101,6 +108,7 @@
         </div>
     </header>
 
+    <!-- Content Utama -->
     <main class="flex-1 flex items-center justify-center p-4 my-6 z-10">
         <div class="w-full max-w-md glass-card rounded-3xl p-7 animate-card">
             
