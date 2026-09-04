@@ -43,12 +43,12 @@ const waStatus = {};
 const pairingCodes = {};
 const reconnectTimers = {};
 
-// ---------------- AUTOMATIC DATABASE MIGRATION (NEON POSTGRESQL) ---------------- //
+// ---------------- AUTOMATIC DATABASE MIGRATION ---------------- //
 async function initDatabase() {
     try {
-        console.log('🔄 Memeriksa dan memperbarui struktur database PostgreSQL...');
+        console.log('🔄 Memeriksa struktur database PostgreSQL...');
         
-        // 1. Pastikan Tabel Pengaturan Ada
+        // 1. Tabel Pengaturan
         await pool.query(`
             CREATE TABLE IF NOT EXISTS pengaturan (
                 kunci VARCHAR(50) PRIMARY KEY,
@@ -56,32 +56,31 @@ async function initDatabase() {
             )
         `);
 
-        // 2. Tambahkan default nama_sekolah jika belum ada
+        // 2. Default nama_sekolah
         await pool.query(`
             INSERT INTO pengaturan (kunci, nilai) 
             VALUES ('nama_sekolah', 'UPTD SD NEGERI 1 KARYA MULYA SARI') 
             ON CONFLICT (kunci) DO NOTHING
         `);
 
-        // 3. Tambahkan default mode_pengirim_wa jika belum ada
+        // 3. Default mode_pengirim_wa
         await pool.query(`
             INSERT INTO pengaturan (kunci, nilai) 
             VALUES ('mode_pengirim_wa', 'WALI_KELAS') 
             ON CONFLICT (kunci) DO NOTHING
         `);
 
-        // 4. Tambahkan kolom 'type' ke tabel absensi secara otomatis jika belum ada
+        // 4. Kolom 'type' untuk absensi kepulangan
         await pool.query(`
             ALTER TABLE absensi ADD COLUMN IF NOT EXISTS type VARCHAR(10) DEFAULT 'MASUK'
         `);
 
-        console.log('✅ Struktur Database PostgreSQL Siap dan Up-to-date!');
+        console.log('✅ Inisialisasi Database Siap!');
     } catch (err) {
-        console.error('❌ Gagal Inisialisasi/Migrasi Database:', err.message);
+        console.error('❌ Gagal Migration Database:', err.message);
     }
 }
 
-// Jalankan auto migration saat server dinyalakan
 initDatabase();
 
 function bersihkanGelar(nama) {
@@ -89,7 +88,6 @@ function bersihkanGelar(nama) {
     return nama.replace(/,?\s*\b(S\.Pd|M\.Pd|S\.Ag|S\.T|S\.Kom|M\.Si|S\.Sos|S\.SE|M\.M|A\.Ma|Sd)\b\.?/gi, '').trim();
 }
 
-// System QR Safe Generator
 async function generateQRDataURL(text) {
     try {
         if (!text) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
@@ -108,7 +106,7 @@ async function getNamaSekolah() {
     } catch (err) {
         console.error("Gagal mengambil nama_sekolah:", err.message);
     }
-    return "Nama Sekolah";
+    return "UPTD SD NEGERI 1 KARYA MULYA SARI";
 }
 
 async function getModePengirim() {
@@ -121,7 +119,7 @@ async function getModePengirim() {
     return "WALI_KELAS";
 }
 
-// ----------------- HYBRID AUTH STATE (LOKAL AUTH FOLDER) ----------------- //
+// ----------------- HYBRID AUTH STATE ----------------- //
 
 async function getAuthState(userId) {
     const authFolder = path.join(__dirname, 'auth_sessions', `user_${userId}`);
@@ -250,18 +248,14 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 // ---------------- ROUTES HALAMAN ---------------- //
 
 app.get('/', async (req, res) => {
-    try {
-        const namaSekolah = await getNamaSekolah();
-        res.render('login', { error: null, namaSekolah: namaSekolah });
-    } catch (err) {
-        res.render('login', { error: null, namaSekolah: "Sistem Presensi Sekolah" });
-    }
+    const namaSekolah = await getNamaSekolah();
+    res.render('login', { error: null, namaSekolah });
 });
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    const namaSekolah = await getNamaSekolah();
     try {
-        const namaSekolah = await getNamaSekolah();
         if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.', namaSekolah });
 
         const result = await pool.query(
@@ -280,7 +274,6 @@ app.post('/login', async (req, res) => {
             return res.redirect(`/wali?userId=${user.id}`);
         }
     } catch (err) {
-        const namaSekolah = await getNamaSekolah();
         return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message, namaSekolah });
     }
 });
@@ -338,12 +331,10 @@ app.get('/admin', async (req, res) => {
             modePengirim: modePengirim
         });
     } catch (err) {
-        console.error("Admin Dashboard Error:", err);
         res.status(500).send("Kesalahan Database: " + err.message);
     }
 });
 
-// === ROUTE KHUSUS CETAK KARTU ===
 app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
     try {
         const siswaRes = await pool.query(`
@@ -448,9 +439,10 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
     }
 });
 
-app.get(['/scan', '/scanner'], (req, res) => {
+app.get(['/scan', '/scanner'], async (req, res) => {
     const userId = parseInt(req.query.userId) || req.session.userId || 1;
-    res.render('scan', { userId: userId });
+    const namaSekolah = await getNamaSekolah();
+    res.render('scan', { userId: userId, namaSekolah: namaSekolah });
 });
 
 // ---------------- API PENGATURAN ADMIN ---------------- //
@@ -788,9 +780,9 @@ app.post('/api/scan', async (req, res) => {
         let waClient = null;
 
         if (modePengirim === 'TERPUSAT') {
-            waClient = waSessions[1];
+            waClient = waSessions[1]; // Sesi Admin
         } else {
-            waClient = waSessions[parsedScannedBy];
+            waClient = waSessions[parsedScannedBy]; // Sesi Wali Kelas
         }
 
         if (!waClient) {
