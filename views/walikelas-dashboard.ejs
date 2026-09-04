@@ -6,8 +6,9 @@
     <title>Portal Wali Kelas - <%= namaSekolah %></title>
     
     <!-- CSS Tailwind & FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
@@ -66,7 +67,7 @@
             box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.12);
         }
 
-        /* VARIASI WARNA BERKARAKTER UNTUK MASING-MASING KOTAK */
+        /* VARIASI WARNA BERKarakter UNTUK MASING-MASING KOTAK */
         .card-blue-theme {
             background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
             border: 1px solid #bfdbfe;
@@ -114,7 +115,7 @@
 </nav>
 
 <!-- SIDEBAR SLIDE WALI KELAS -->
-<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 transform -translate-x-full flex flex-col justify-between border-r border-slate-200">
+<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 -translate-x-full flex flex-col justify-between border-r border-slate-200">
   <div>
     <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
       <h5 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
@@ -214,38 +215,32 @@
                 </div>
             </div>
 
-            <% if (typeof modePengirimWAAdmin !== 'undefined' && modePengirimWAAdmin === 'ADMIN' && typeof izinkanGuruPilihWA !== 'undefined' && izinkanGuruPilihWA === 'TIDAK') { %>
-                <div class="bg-blue-50 border border-blue-200 text-blue-900 p-3 rounded-xl text-xs relative z-10">
-                    <i class="fa-solid fa-circle-info mr-1 text-blue-600"></i> Notifikasi WhatsApp diatur terpusat oleh <strong>ADMIN SEKOLAH</strong>. Anda tidak perlu memindai perangkat WA secara mandiri.
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto relative z-10">
+                <div id="qrContainer" class="hidden bg-white p-1.5 rounded-xl shadow border border-slate-300 flex flex-col items-center">
+                    <img id="qrImageWA" src="" alt="Scan QR WA" class="w-28 h-28">
+                    <span class="text-[9px] text-slate-500 mt-1 font-mono">Pindai dengan WA</span>
                 </div>
-            <% } else { %>
-                <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto relative z-10">
-                    <div id="qrContainer" class="hidden bg-white p-1.5 rounded-xl shadow border border-slate-300 flex flex-col items-center">
-                        <img id="qrImageWA" src="" alt="Scan QR WA" class="w-28 h-28">
-                        <span class="text-[9px] text-slate-500 mt-1 font-mono">Pindai dengan WA</span>
-                    </div>
 
-                    <div id="pairingContainer" class="hidden bg-blue-50 p-3 rounded-xl border border-blue-200 text-center min-w-[200px]">
-                        <span class="text-[10px] text-blue-800 font-medium block">Kode Tautan WhatsApp Anda:</span>
-                        <strong id="pairingCodeText" class="text-xl font-mono text-blue-900 tracking-widest my-1 block">-</strong>
-                        <span class="text-[9px] text-blue-700 block">Masukkan di WA HP (Tautkan dg nomor)</span>
-                    </div>
-
-                    <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
-                        <button type="button" onclick="mintaQRWA()" id="btnGenerateWA" class="btn-interactive bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3.5 py-2.5 rounded-xl border border-emerald-700 font-semibold transition flex items-center gap-1.5 shadow-md">
-                            <i class="fa-solid fa-qrcode"></i> Scan QR
-                        </button>
-
-                        <button type="button" onclick="mintaPairingWA()" id="btnPairingWA" class="btn-interactive bg-blue-800 hover:bg-blue-900 text-white text-xs px-3.5 py-2.5 rounded-xl border border-blue-900 font-semibold transition flex items-center gap-1.5 shadow-md">
-                            <i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA
-                        </button>
-
-                        <button type="button" onclick="resetWA()" id="btnResetWA" class="btn-interactive bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2.5 rounded-xl border border-rose-200 font-semibold transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-trash"></i> Reset
-                        </button>
-                    </div>
+                <div id="pairingContainer" class="hidden bg-blue-50 p-3 rounded-xl border border-blue-200 text-center min-w-[200px]">
+                    <span class="text-[10px] text-blue-800 font-medium block">Kode Tautan WhatsApp Anda:</span>
+                    <strong id="pairingCodeText" class="text-xl font-mono text-blue-900 tracking-widest my-1 block">-</strong>
+                    <span class="text-[9px] text-blue-700 block">Masukkan di WA HP (Tautkan dg nomor)</span>
                 </div>
-            <% } %>
+
+                <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+                    <button type="button" onclick="mintaQRWA()" id="btnGenerateWA" class="btn-interactive bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3.5 py-2.5 rounded-xl border border-emerald-700 font-semibold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-qrcode"></i> Scan QR
+                    </button>
+
+                    <button type="button" onclick="mintaPairingWA()" id="btnPairingWA" class="btn-interactive bg-blue-800 hover:bg-blue-900 text-white text-xs px-3.5 py-2.5 rounded-xl border border-blue-900 font-semibold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA
+                    </button>
+
+                    <button type="button" onclick="resetWA()" id="btnResetWA" class="btn-interactive bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2.5 rounded-xl border border-rose-200 font-semibold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash"></i> Reset
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- KOTAK REKAP BULANAN (TEMA PURPLE) -->
@@ -376,9 +371,9 @@
                 <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <i class="fa-solid fa-users text-blue-700"></i> Daftar Peserta Didik (<%= user.nama_kelas %>)
                 </h3>
-                <a href="/cetak-kartu" target="_blank" class="btn-interactive bg-white hover:bg-slate-50 text-slate-700 text-xs px-3.5 py-2 rounded-xl border border-blue-200 font-medium transition flex items-center gap-1.5 shadow-xs">
+                <button type="button" onclick="window.print()" class="btn-interactive bg-white hover:bg-slate-50 text-slate-700 text-xs px-3.5 py-2 rounded-xl border border-blue-200 font-medium transition flex items-center gap-1.5 shadow-xs">
                     <i class="fa-solid fa-print"></i> Cetak Kartu Identitas
-                </a>
+                </button>
             </div>
 
             <div class="overflow-x-auto relative z-10">
@@ -466,7 +461,7 @@
                         <tr>
                             <th class="p-3">Nama Siswa</th>
                             <th class="p-3">Waktu Presensi</th>
-                            <th class="p-3">Status Kehadiran</th>
+                            <th class="p-3 text-center">Tipe Presensi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-emerald-100 bg-white/70">
@@ -475,10 +470,16 @@
                                 <tr class="hover:bg-emerald-50/50 transition-colors">
                                     <td class="p-3 font-semibold text-slate-900"><%= a.nama_siswa %></td>
                                     <td class="p-3 font-mono text-slate-600"><%= a.waktu_formatted %></td>
-                                    <td class="p-3">
-                                        <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
-                                            HADIR
-                                        </span>
+                                    <td class="p-3 text-center">
+                                        <% if (a.type === 'PULANG') { %>
+                                            <span class="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
+                                                KEPULANGAN
+                                            </span>
+                                        <% } else { %>
+                                            <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
+                                                KEDATANGAN
+                                            </span>
+                                        <% } %>
                                     </td>
                                 </tr>
                             <% }); %>
@@ -534,19 +535,13 @@
     <!-- SCRIPT CONTROL SIDEBAR PURE JAVASCRIPT -->
     <script>
         function bukaSidebar() {
-            const sidebar = document.getElementById('sidebarMenu');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            sidebar.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
+            document.getElementById('sidebarMenu').classList.remove('-translate-x-full');
+            document.getElementById('sidebarOverlay').classList.remove('hidden');
         }
 
         function tutupSidebar() {
-            const sidebar = document.getElementById('sidebarMenu');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            sidebar.classList.add('-translate-x-full');
-            overlay.classList.add('hidden');
+            document.getElementById('sidebarMenu').classList.add('-translate-x-full');
+            document.getElementById('sidebarOverlay').classList.add('hidden');
         }
 
         const currentUserId = "<%= userId %>";
@@ -561,28 +556,26 @@
                     const pairingContainer = document.getElementById('pairingContainer');
                     const pairingCodeText = document.getElementById('pairingCodeText');
 
-                    if (!statusText) return;
-
                     if (data.statusWA === 'TERHUBUNG') {
                         statusText.innerHTML = `Koneksi Layanan: <span class="text-emerald-700 font-bold">Terhubung & Siap Terkirim ✅</span>`;
-                        if (qrContainer) qrContainer.classList.add('hidden');
-                        if (pairingContainer) pairingContainer.classList.add('hidden');
+                        qrContainer.classList.add('hidden');
+                        pairingContainer.classList.add('hidden');
                     } else if (data.pairingCode) {
                         statusText.innerHTML = `Koneksi Layanan: <span class="text-blue-700 font-bold">Masukkan Kode di WA HP 📲</span>`;
-                        if (pairingCodeText) pairingCodeText.innerText = data.pairingCode;
-                        if (pairingContainer) pairingContainer.classList.remove('hidden');
-                        if (qrContainer) qrContainer.classList.add('hidden');
+                        pairingCodeText.innerText = data.pairingCode;
+                        pairingContainer.classList.remove('hidden');
+                        qrContainer.classList.add('hidden');
                     } else if (data.qrCodeWA) {
                         statusText.innerHTML = `Koneksi Layanan: <span class="text-amber-600 font-bold">Pindai Kode QR Di Bawah 📲</span>`;
-                        if (qrImage) qrImage.src = data.qrCodeWA;
-                        if (qrContainer) qrContainer.classList.remove('hidden');
-                        if (pairingContainer) pairingContainer.classList.add('hidden');
+                        qrImage.src = data.qrCodeWA;
+                        qrContainer.classList.remove('hidden');
+                        pairingContainer.classList.add('hidden');
                     } else if (data.statusWA === 'MENUNGGU_PAIRING_CODE' || data.statusWA === 'MENUNGGU_SCAN') {
                         statusText.innerHTML = `Koneksi Layanan: <span class="text-amber-600 font-bold">Menyiapkan Tautan... ⏳</span>`;
                     } else {
                         statusText.innerHTML = `Koneksi Layanan: <span class="text-rose-600 font-bold">Belum Terhubung ❌</span>`;
-                        if (qrContainer) qrContainer.classList.add('hidden');
-                        if (pairingContainer) pairingContainer.classList.add('hidden');
+                        qrContainer.classList.add('hidden');
+                        pairingContainer.classList.add('hidden');
                     }
                 })
                 .catch(err => console.error("Gagal cek WA status:", err));
@@ -590,18 +583,14 @@
 
         function mintaQRWA() {
             const btn = document.getElementById('btnGenerateWA');
-            if (btn) {
-                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-                btn.disabled = true;
-            }
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
+            btn.disabled = true;
 
             fetch(`/api/start-wa?userId=${currentUserId}`)
                 .then(() => {
                     setTimeout(() => {
-                        if (btn) {
-                            btn.innerHTML = `<i class="fa-solid fa-qrcode"></i> Scan QR`;
-                            btn.disabled = false;
-                        }
+                        btn.innerHTML = `<i class="fa-solid fa-qrcode"></i> Scan QR`;
+                        btn.disabled = false;
                         cekStatusWA();
                     }, 2000);
                 });
@@ -612,20 +601,16 @@
             if (!noHp) return;
 
             const btn = document.getElementById('btnPairingWA');
-            if (btn) {
-                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-                btn.disabled = true;
-            }
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
+            btn.disabled = true;
 
             fetch(`/api/request-pairing?userId=${currentUserId}&phone=${encodeURIComponent(noHp)}`)
                 .then(res => res.json())
                 .then(data => {
                     alert("Mempersiapkan kode tautan. Silakan tunggu 3-5 detik...");
                     setTimeout(() => {
-                        if (btn) {
-                            btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA`;
-                            btn.disabled = false;
-                        }
+                        btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA`;
+                        btn.disabled = false;
                         cekStatusWA();
                     }, 3000);
                 });
@@ -641,7 +626,7 @@
                 });
         }
 
-        setInterval(cekStatusWA, 3000);
+        setInterval(cekStatusWA, 2000);
         cekStatusWA();
 
         function bukaModalEditSiswa(btn) {
@@ -691,9 +676,7 @@
                                 <td class="p-2.5 text-center font-mono">${index + 1}</td>
                                 <td class="p-2.5 font-semibold text-slate-900">${item.nama_siswa}</td>
                                 <td class="p-2.5 text-slate-600">${item.nama_kelas}</td>
-                                <td class="p-2.5 text-center font-bold text-emerald-700 bg-emerald-50/50">
-                                    Masuk: ${item.total_datang || 0} Hari | Pulang: ${item.total_pulang || 0} Hari
-                                </td>
+                                <td class="p-2.5 text-center font-bold text-emerald-700 bg-emerald-50/50">${item.total_hadir} Hari</td>
                             </tr>
                         `).join('');
                     } else {
