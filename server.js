@@ -209,8 +209,14 @@ async function connectToWhatsApp(userId, phoneNumber = null) {
 
 // ---------------- ROUTES HALAMAN ---------------- //
 
-app.get('/', (req, res) => res.render('login', { error: null }));
-
+app.get('/', async (req, res) => {
+    try {
+        const namaSekolah = await getNamaSekolah();
+        res.render('login', { error: null, namaSekolah: namaSekolah });
+    } catch (err) {
+        res.render('login', { error: null, namaSekolah: 'Sistem Presensi Sekolah' });
+    }
+});
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
