@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Administrator - <%= namaSekolah %></title>
     
+    <!-- CSS Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
-    <!-- CSS Tailwind & FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
+    <!-- CSS Pendukung -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -20,6 +21,7 @@
         .offcanvas { z-index: 1055 !important; }
         .offcanvas-backdrop { z-index: 1050 !important; }
 
+        /* LATAR BELAKANG TERANG BERANIMASI DENGAN PATTERN */
         .bg-light-animated {
             background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #fef3c7, #f1f5f9);
             background-size: 400% 400%;
@@ -36,6 +38,7 @@
             100% { background-position: 0% 50%; }
         }
 
+        /* Scrollbar Halus */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -46,6 +49,7 @@
         }
         .animate-glow { animation: pulseGlow 5s infinite ease-in-out; }
 
+        /* KARTU PRO DENGAN TEMA WARNA & HOVER EFFECT */
         .card-pro {
             position: relative;
             overflow: hidden;
@@ -97,6 +101,7 @@
 </head>
 <body class="bg-light-animated text-slate-800 min-h-screen flex flex-col justify-between font-sans antialiased">
 
+<!-- NAVBAR HEADER ATAS -->
 <nav class="bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-md px-4 py-3 flex items-center justify-between border-b border-amber-500/50">
   <div class="flex items-center gap-3">
     <button type="button" onclick="bukaSidebar()" class="btn-interactive bg-blue-800 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl border border-blue-600 font-bold text-xs flex items-center gap-2 transition shadow-sm">
@@ -113,7 +118,8 @@
   </div>
 </nav>
 
-<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 transform -translate-x-full flex flex-col justify-between border-r border-slate-200">
+<!-- SIDEBAR SLIDE ADMIN -->
+<div id="sidebarMenu" class="fixed top-0 left-0 h-full w-[260px] bg-white text-slate-800 shadow-2xl z-50 transition-all duration-300 -translate-x-full flex flex-col justify-between border-r border-slate-200">
   <div>
     <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
       <h5 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
@@ -128,14 +134,14 @@
       <a href="/admin?userId=<%= userId %>" class="flex items-center gap-3 p-3 font-semibold bg-blue-50 text-blue-900 rounded-xl">
         <i class="fa-solid fa-house text-blue-700"></i> Dashboard Utama
       </a>
+      <a href="#section-pengaturan" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
+        <i class="fa-solid fa-gear text-amber-600"></i> Pengaturan Sistem
+      </a>
       <a href="/scan?userId=<%= userId %>" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-qrcode text-emerald-600"></i> Pemindai QR Presensi
       </a>
       <a href="/admin/cetak-kartu" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-address-card text-purple-600"></i> Cetak Kartu Siswa
-      </a>
-      <a href="#section-wa-gateway" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
-        <i class="fa-brands fa-whatsapp text-emerald-600"></i> Tautkan WA Admin
       </a>
       <a href="#section-dapodik" onclick="tutupSidebar()" class="flex items-center gap-3 p-3 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition">
         <i class="fa-solid fa-file-excel text-emerald-600"></i> Impor Excel Dapodik
@@ -161,6 +167,7 @@
 
 <div id="sidebarOverlay" onclick="tutupSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden transition-opacity backdrop-blur-xs"></div>
 
+    <!-- HEADER RESMI SEKOLAH BERANIMASI -->
     <header class="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-900 text-white shadow-lg border-b-4 border-amber-500 relative overflow-hidden">
         <div class="absolute -top-12 left-1/4 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl animate-glow pointer-events-none"></div>
         <div class="absolute -bottom-10 right-10 w-36 h-36 bg-amber-400/20 rounded-full blur-3xl animate-glow pointer-events-none" style="animation-delay: 2.5s;"></div>
@@ -188,6 +195,7 @@
 
     <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 animate-fade-in">
 
+        <!-- KOTAK BANNER PROFIL (AMBER THEME) -->
         <div class="card-pro card-amber-theme p-4 mb-6 flex items-center justify-between">
             <div class="flex items-center gap-3 relative z-10">
                 <div class="bg-amber-600 text-white p-3 rounded-xl shadow-md">
@@ -200,92 +208,39 @@
             </div>
         </div>
 
-        <!-- PANEL PROFIL SEKOLAH & OPSI WA (KONTROL ADMIN) -->
-        <div class="card-pro card-blue-theme p-5 mb-6">
-            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
-                <i class="fa-solid fa-school text-blue-700"></i> Pengaturan Profil Sekolah & Notifikasi WhatsApp
-            </h3>
-            
-            <form action="/api/admin/pengaturan/update" method="POST" class="space-y-4 relative z-10">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Nama Resmi Sekolah</label>
-                        <input type="text" name="nama_sekolah" value="<%= namaSekolah %>" required class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Alamat Sekolah</label>
-                        <input type="text" name="alamat_sekolah" value="<%= typeof alamatSekolah !== 'undefined' ? alamatSekolah : '' %>" placeholder="Alamat lengkap sekolah" class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                    </div>
+        <!-- FORM PENGATURAN SISTEM (NAMA SEKOLAH & MODE PENGIRIM WA) -->
+        <div id="section-pengaturan" class="card-pro card-amber-theme p-5 mb-6">
+            <div class="flex items-center gap-3 mb-3 border-b border-amber-200/60 pb-2 relative z-10">
+                <div class="bg-amber-600 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-gear text-lg"></i>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-blue-200/60 pt-3">
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Mode Pengirim WhatsApp Default</label>
-                        <select name="mode_pengirim_wa" class="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600">
-                            <option value="ADMIN" <%= (typeof modePengirimWA !== 'undefined' && modePengirimWA === 'ADMIN') ? 'selected' : '' %>>Gunakan Satu Nomor WA Admin Terpusat</option>
-                            <option value="SENDIRI" <%= (typeof modePengirimWA !== 'undefined' && modePengirimWA === 'SENDIRI') ? 'selected' : '' %>>Gunakan Nomor WA Guru Masing-Masing</option>
-                        </select>
-                    </div>
-
-                    <div class="flex items-center pt-3 sm:pt-4">
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="izinkan_guru_pilih_wa" value="YA" class="sr-only peer" <%= (typeof izinkanGuruPilihWA !== 'undefined' && izinkanGuruPilihWA === 'YA') ? 'checked' : '' %>>
-                            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-800"></div>
-                            <span class="ml-3 text-xs font-bold text-slate-800">Izinkan Guru Memilih Opsi Pengirim Sendiri di Dasbor</span>
-                        </label>
-                    </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider">Pengaturan Identitas Sekolah & Notifikasi WhatsApp</h3>
+                    <p class="text-[11px] text-slate-600">Sesuaikan nama instansi dan tentukan pengirim notifikasi pesan presensi.</p>
                 </div>
+            </div>
 
-                <div class="flex justify-end pt-1">
-                    <button type="submit" class="btn-interactive bg-blue-900 hover:bg-blue-800 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
-                        <i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan Sekolah & WA
+            <form action="/api/pengaturan" method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-700 mb-1">Nama Sekolah / Instansi</label>
+                    <input type="text" name="nama_sekolah" value="<%= namaSekolah %>" required class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-700 mb-1">Mode Pengirim Notifikasi WhatsApp</label>
+                    <select name="mode_pengirim_wa" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-600">
+                        <option value="WALI_KELAS" <%= modePengirim === 'WALI_KELAS' ? 'selected' : '' %>>Sesuai Akun Login Wali Kelas Masing-masing</option>
+                        <option value="TERPUSAT" <%= modePengirim === 'TERPUSAT' ? 'selected' : '' %>>Terpusat Menggunakan WA Admin (ID #1)</option>
+                    </select>
+                </div>
+                <div class="sm:col-span-2 text-end">
+                    <button type="submit" class="btn-interactive bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition border border-amber-800 shadow-md">
+                        <i class="fa-solid fa-floppy-disk mr-1"></i> Simpan Pengaturan
                     </button>
                 </div>
             </form>
         </div>
 
-        <!-- KOTAK WA GATEWAY TERPUSAT (KHUSUS ADMIN) -->
-        <div id="section-wa-gateway" class="card-pro card-emerald-theme p-5 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-center gap-3 relative z-10">
-                <div class="p-3 rounded-xl bg-emerald-600 text-white shadow-md">
-                    <i class="fa-brands fa-whatsapp text-2xl"></i>
-                </div>
-                <div>
-                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Status WhatsApp Gateway Terpusat (Admin)</h3>
-                    <p class="text-xs text-slate-600 mt-0.5" id="waStatusText">
-                        Koneksi Layanan: <span class="text-slate-500 font-bold">Memeriksa status...</span>
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto relative z-10">
-                <div id="qrContainer" class="hidden bg-white p-1.5 rounded-xl shadow border border-slate-300 flex flex-col items-center">
-                    <img id="qrImageWA" src="" alt="Scan QR WA" class="w-28 h-28">
-                    <span class="text-[9px] text-slate-500 mt-1 font-mono">Pindai dengan WA</span>
-                </div>
-
-                <div id="pairingContainer" class="hidden bg-blue-50 p-3 rounded-xl border border-blue-200 text-center min-w-[200px]">
-                    <span class="text-[10px] text-blue-800 font-medium block">Kode Tautan WhatsApp Admin:</span>
-                    <strong id="pairingCodeText" class="text-xl font-mono text-blue-900 tracking-widest my-1 block">-</strong>
-                    <span class="text-[9px] text-blue-700 block">Masukkan di WA HP Admin</span>
-                </div>
-
-                <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
-                    <button type="button" onclick="mintaQRWA()" id="btnGenerateWA" class="btn-interactive bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3.5 py-2.5 rounded-xl border border-emerald-700 font-semibold transition flex items-center gap-1.5 shadow-md">
-                        <i class="fa-solid fa-qrcode"></i> Scan QR
-                    </button>
-
-                    <button type="button" onclick="mintaPairingWA()" id="btnPairingWA" class="btn-interactive bg-blue-800 hover:bg-blue-900 text-white text-xs px-3.5 py-2.5 rounded-xl border border-blue-900 font-semibold transition flex items-center gap-1.5 shadow-md">
-                        <i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA
-                    </button>
-
-                    <button type="button" onclick="resetWA()" id="btnResetWA" class="btn-interactive bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2.5 rounded-xl border border-rose-200 font-semibold transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-trash"></i> Reset
-                    </button>
-                </div>
-            </div>
-        </div>
-
+        <!-- METRIC SUMMARY CARDS WITH INDIVIDUAL COLOR THEMES -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div class="card-pro card-blue-theme p-4 flex items-center justify-between">
                 <div class="relative z-10">
@@ -318,6 +273,7 @@
             </div>
         </div>
 
+        <!-- KOTAK IMPOR DAPODIK (EMERALD THEME) -->
         <div id="section-dapodik" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex items-center gap-3 mb-3 border-b border-emerald-200/60 pb-2 relative z-10">
                 <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
@@ -338,7 +294,10 @@
             </form>
         </div>
 
+        <!-- KOTAK FORM TAMBAH ROMBEL & GURU -->
         <div id="section-rombel" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            
+            <!-- FORM ROMBEL (PURPLE THEME) -->
             <div class="card-pro card-purple-theme p-5">
                 <div class="flex justify-between items-center border-b border-purple-200/60 pb-2 mb-4 relative z-10">
                     <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -377,6 +336,7 @@
                 </div>
             </div>
 
+            <!-- FORM GURU (BLUE THEME) -->
             <div class="card-pro card-blue-theme p-5">
                 <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
                     <i class="fa-solid fa-user-plus text-blue-700"></i> Registrasi Akun Wali Kelas / Guru
@@ -402,6 +362,7 @@
             </div>
         </div>
 
+        <!-- KOTAK REGISTRASI SISWA MANUAL (AMBER THEME) -->
         <div class="card-pro card-amber-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-amber-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-address-card text-amber-700"></i> Registrasi Peserta Didik Baru (Manual)
@@ -421,6 +382,7 @@
             </form>
         </div>
 
+        <!-- KOTAK TABEL DIREKTORI GURU (BLUE THEME) -->
         <div class="card-pro card-blue-theme p-5 mb-6">
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-blue-200/60 pb-2 relative z-10">
                 <i class="fa-solid fa-users-gear text-blue-700"></i> Direktori Akun Tenaga Pendidik
@@ -477,6 +439,7 @@
             </div>
         </div>
 
+        <!-- KOTAK TABEL DIREKTORI SISWA & QR CODE (EMERALD THEME) -->
         <div id="section-siswa" class="card-pro card-emerald-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-emerald-200/60 pb-3 relative z-10">
                 <div>
@@ -566,13 +529,14 @@
             </div>
         </div>
 
+        <!-- KOTAK TABEL REKAP PRESENSI HARI INI (PURPLE THEME) -->
         <div id="section-presensi" class="card-pro card-purple-theme p-5 mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-purple-200/60 pb-3 relative z-10">
                 <div>
                     <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                         <i class="fa-solid fa-clipboard-user text-purple-700"></i> Rekapitulasi Presensi Kehadiran Hari Ini
                     </h3>
-                    <p class="text-[11px] text-slate-600 mt-0.5">Daftar log aktivitas scan kartu siswa (masuk & pulang) yang tercatat hari ini.</p>
+                    <p class="text-[11px] text-slate-600 mt-0.5">Daftar log aktivitas scan kartu siswa yang tercatat hari ini.</p>
                 </div>
 
                 <form action="/api/absensi/reset-riwayat" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat absensi uji coba?\n\nCatatan: Data siswa, guru, dan rombel kelas TIDAK akan terhapus.');">
@@ -588,9 +552,8 @@
                         <tr>
                             <th class="p-3">Nama Siswa</th>
                             <th class="p-3">Rombel Kelas</th>
-                            <th class="p-3">Jenis Presensi</th>
-                            <th class="p-3">Waktu Scan</th>
-                            <th class="p-3 text-center">Status</th>
+                            <th class="p-3">Waktu Presensi</th>
+                            <th class="p-3 text-center">Tipe Presensi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-purple-100 bg-white/70">
@@ -599,28 +562,23 @@
                                 <tr class="hover:bg-purple-50/50 transition-colors">
                                     <td class="p-3 font-semibold text-slate-900"><%= a.nama_siswa %></td>
                                     <td class="p-3 text-slate-600"><%= a.nama_kelas %></td>
-                                    <td class="p-3">
-                                        <% if (a.jenis_absen === 'PULANG') { %>
-                                            <span class="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
-                                                PRESENSI PULANG
-                                            </span>
-                                        <% } else { %>
-                                            <span class="bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-extrabold px-2 py-0.5 rounded">
-                                                PRESENSI DATANG
-                                            </span>
-                                        <% } %>
-                                    </td>
                                     <td class="p-3 font-mono text-slate-600"><%= a.waktu_formatted %></td>
                                     <td class="p-3 text-center">
-                                        <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
-                                            HADIR
-                                        </span>
+                                        <% if (a.type === 'PULANG') { %>
+                                            <span class="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
+                                                KEPULANGAN
+                                            </span>
+                                        <% } else { %>
+                                            <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded">
+                                                KEDATANGAN
+                                            </span>
+                                        <% } %>
                                     </td>
                                 </tr>
                             <% }); %>
                         <% } else { %>
                             <tr>
-                                <td colspan="5" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi masuk/pulang untuk hari ini.</td>
+                                <td colspan="4" class="p-6 text-center text-slate-400 italic">Belum ada data rekaman presensi masuk untuk hari ini.</td>
                             </tr>
                         <% } %>
                     </tbody>
@@ -630,8 +588,10 @@
 
     </main>
 
+    <!-- FORM TERSEMBUNYI UNTUK PROCESS HAPUS -->
     <form id="formHapusUmum" action="" method="POST" class="hidden"></form>
 
+    <!-- MODAL EDIT DATA GURU -->
     <div id="modalEditGuru" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
@@ -683,6 +643,7 @@
         </div>
     </div>
 
+    <!-- MODAL EDIT DATA SISWA -->
     <div id="modalEditSiswa" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
@@ -727,104 +688,10 @@
         </div>
     </div>
 
+    <!-- SCRIPT JAVASCRIPT BOOTSTRAP -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        const currentUserId = "<%= userId %>";
-
-        function cekStatusWA() {
-            fetch(`/api/wa-status?userId=${currentUserId}`)
-                .then(res => res.json())
-                .then(data => {
-                    const statusText = document.getElementById('waStatusText');
-                    const qrContainer = document.getElementById('qrContainer');
-                    const qrImage = document.getElementById('qrImageWA');
-                    const pairingContainer = document.getElementById('pairingContainer');
-                    const pairingCodeText = document.getElementById('pairingCodeText');
-
-                    if (!statusText) return;
-
-                    if (data.statusWA === 'TERHUBUNG') {
-                        statusText.innerHTML = `Koneksi Layanan: <span class="text-emerald-700 font-bold">Terhubung & Siap Terkirim ✅</span>`;
-                        if (qrContainer) qrContainer.classList.add('hidden');
-                        if (pairingContainer) pairingContainer.classList.add('hidden');
-                    } else if (data.pairingCode) {
-                        statusText.innerHTML = `Koneksi Layanan: <span class="text-blue-700 font-bold">Masukkan Kode di WA HP 📲</span>`;
-                        if (pairingCodeText) pairingCodeText.innerText = data.pairingCode;
-                        if (pairingContainer) pairingContainer.classList.remove('hidden');
-                        if (qrContainer) qrContainer.classList.add('hidden');
-                    } else if (data.qrCodeWA) {
-                        statusText.innerHTML = `Koneksi Layanan: <span class="text-amber-600 font-bold">Pindai Kode QR Di Bawah 📲</span>`;
-                        if (qrImage) qrImage.src = data.qrCodeWA;
-                        if (qrContainer) qrContainer.classList.remove('hidden');
-                        if (pairingContainer) pairingContainer.classList.add('hidden');
-                    } else if (data.statusWA === 'MENUNGGU_PAIRING_CODE' || data.statusWA === 'MENUNGGU_SCAN') {
-                        statusText.innerHTML = `Koneksi Layanan: <span class="text-amber-600 font-bold">Menyiapkan Tautan... ⏳</span>`;
-                    } else {
-                        statusText.innerHTML = `Koneksi Layanan: <span class="text-rose-600 font-bold">Belum Terhubung ❌</span>`;
-                        if (qrContainer) qrContainer.classList.add('hidden');
-                        if (pairingContainer) pairingContainer.classList.add('hidden');
-                    }
-                })
-                .catch(err => console.error("Gagal cek WA status:", err));
-        }
-
-        function mintaQRWA() {
-            const btn = document.getElementById('btnGenerateWA');
-            if (btn) {
-                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-                btn.disabled = true;
-            }
-
-            fetch(`/api/start-wa?userId=${currentUserId}`)
-                .then(() => {
-                    setTimeout(() => {
-                        if (btn) {
-                            btn.innerHTML = `<i class="fa-solid fa-qrcode"></i> Scan QR`;
-                            btn.disabled = false;
-                        }
-                        cekStatusWA();
-                    }, 2000);
-                });
-        }
-
-        function mintaPairingWA() {
-            const noHp = prompt("Masukkan Nomor WhatsApp Admin Sekolah (Contoh: 082371729760):");
-            if (!noHp) return;
-
-            const btn = document.getElementById('btnPairingWA');
-            if (btn) {
-                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-                btn.disabled = true;
-            }
-
-            fetch(`/api/request-pairing?userId=${currentUserId}&phone=${encodeURIComponent(noHp)}`)
-                .then(res => res.json())
-                .then(data => {
-                    alert("Mempersiapkan kode tautan. Silakan tunggu 3-5 detik...");
-                    setTimeout(() => {
-                        if (btn) {
-                            btn.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> Pakai Nomor WA`;
-                            btn.disabled = false;
-                        }
-                        cekStatusWA();
-                    }, 3000);
-                });
-        }
-
-        function resetWA() {
-            if (!confirm('Apakah Anda yakin ingin mereset sesi WhatsApp Admin?')) return;
-            fetch(`/api/reset-wa?userId=${currentUserId}`)
-                .then(res => res.json())
-                .then(data => {
-                    alert(data.message);
-                    cekStatusWA();
-                });
-        }
-
-        setInterval(cekStatusWA, 3000);
-        cekStatusWA();
-
         function prosesImportExcel(e) {
             e.preventDefault();
             const fileInput = document.getElementById('fileExcelInput');
@@ -857,6 +724,7 @@
             });
         }
 
+        // AKUN GURU MODAL & HAPUS
         function bukaModalEditGuru(btn) {
             const id = btn.getAttribute('data-id');
             const nama = decodeURIComponent(btn.getAttribute('data-nama'));
@@ -886,6 +754,7 @@
             }
         }
 
+        // SISWA MODAL & HAPUS
         function bukaModalEditSiswa(btn) {
             const id = btn.getAttribute('data-id');
             const nama = decodeURIComponent(btn.getAttribute('data-nama'));
