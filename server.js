@@ -77,7 +77,7 @@ async function getModePengirim() {
     } catch (err) {
         console.error("Gagal mengambil mode_pengirim_wa:", err.message);
     }
-    return "WALI_KELAS";
+    return "WALI_KELAS"; // Default: WALI_KELAS
 }
 
 // ----------------- HYBRID AUTH STATE (LOKAL AUTH FOLDER) ----------------- //
@@ -218,20 +218,22 @@ app.get('/', async (req, res) => {
         const namaSekolah = await getNamaSekolah();
         res.render('login', { error: null, namaSekolah: namaSekolah });
     } catch (err) {
-        res.render('login', { error: null, namaSekolah: 'Sistem Presensi Sekolah' });
+        res.render('login', { error: null, namaSekolah: "Sistem Presensi Sekolah" });
     }
 });
+
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.' });
+        const namaSekolah = await getNamaSekolah();
+        if (!username || !password) return res.render('login', { error: 'Username dan kata sandi wajib diisi.', namaSekolah });
 
         const result = await pool.query(
             'SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
             [username.trim(), password.trim()]
         );
 
-        if (result.rows.length === 0) return res.render('login', { error: 'Username atau kata sandi tidak valid.' });
+        if (result.rows.length === 0) return res.render('login', { error: 'Username atau kata sandi tidak valid.', namaSekolah });
 
         const user = result.rows[0];
         req.session.userId = user.id;
@@ -242,7 +244,8 @@ app.post('/login', async (req, res) => {
             return res.redirect(`/wali?userId=${user.id}`);
         }
     } catch (err) {
-        return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message });
+        const namaSekolah = await getNamaSekolah();
+        return res.render('login', { error: 'Kesalahan Sistem Database: ' + err.message, namaSekolah });
     }
 });
 
@@ -304,7 +307,7 @@ app.get('/admin', async (req, res) => {
     }
 });
 
-// === SISIPKAN ROUTE KHUSUS CETAK KARTU INI DENGAN BENAR ===
+// === ROUTE KHUSUS CETAK KARTU ===
 app.get(['/admin/cetak-kartu', '/cetak-kartu'], async (req, res) => {
     try {
         const siswaRes = await pool.query(`
@@ -358,7 +361,7 @@ app.get(['/wali', '/walikelas-dashboard'], async (req, res) => {
         const siswaRes = await pool.query(siswaQuery, queryParamsSiswa);
 
         let absensiQuery = `
-            SELECT a.id, a.waktu, a.type, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
+            SELECT a.id, a.waktu, COALESCE(a.type, 'MASUK') AS type, s.nama AS nama_siswa, COALESCE(k.nama_kelas, '-') AS nama_kelas 
             FROM absensi a 
             JOIN siswa s ON a.siswa_id = s.id 
             LEFT JOIN kelas k ON s.kelas_id = k.id 
@@ -749,14 +752,14 @@ app.post('/api/scan', async (req, res) => {
         let waClient = null;
 
         if (modePengirim === 'TERPUSAT') {
-            // Utamakan WA milik Admin (ID 1)
+            // Mengutamakan nomor WA Admin (ID #1)
             waClient = waSessions[1];
         } else {
-            // Utamakan WA milik Wali Kelas yang melakukan scan
+            // Mengutamakan nomor WA Wali Kelas yang melakukan scan
             waClient = waSessions[parsedScannedBy];
         }
 
-        // Fallback: jika pilihan utama tidak terhubung, gunakan sesi WA yang tersedia
+        // Fallback: Jika sesi pilihan utama belum terhubung, cari sesi WA aktif lainnya
         if (!waClient) {
             const keys = Object.keys(waSessions);
             if (keys.length > 0) waClient = waSessions[keys[0]];
