@@ -701,13 +701,23 @@ app.get('/api/request-pairing', async (req, res) => {
 });
 
 app.get('/api/wa-status', (req, res) => {
-    const userId = parseInt(req.query.userId) || req.session.userId || 1;
-    res.json({
-        success: true,
-        statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
-        qrCodeWA: qrCodes[userId] || null,
-        pairingCode: pairingCodes[userId] || null
-    });
+    try {
+        const userId = parseInt(req.query.userId) || req.session.userId || 1;
+        
+        return res.json({
+            success: true,
+            statusWA: waStatus[userId] || 'BELUM_TERHUBUNG',
+            qrCodeWA: qrCodes[userId] || null,
+            pairingCode: pairingCodes[userId] || null
+        });
+    } catch (err) {
+        console.error("Error pada /api/wa-status:", err.message);
+        return res.status(500).json({
+            success: false,
+            statusWA: 'ERROR',
+            message: err.message
+        });
+    }
 });
 
 app.get('/api/reset-wa', async (req, res) => {
